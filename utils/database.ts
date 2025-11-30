@@ -14,7 +14,7 @@ export function getSupabaseClient(): SupabaseClient {
 
     if (!supabaseUrl || !supabaseKey) {
       throw new Error(
-        "Missing required environment variables: SUPABASE_URL and SUPABASE_KEY"
+        "Missing required environment variables: SUPABASE_URL and SUPABASE_KEY",
       );
     }
 
@@ -32,7 +32,7 @@ export function getSupabaseClient(): SupabaseClient {
  */
 export async function readFromTable<T = any>(
   tableName: string,
-  columns: string = "*"
+  columns: string = "*",
 ) {
   try {
     const client = getSupabaseClient();

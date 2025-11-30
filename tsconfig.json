@@ -15,13 +15,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": [
-    "api/**/*",
-    "utils/**/*",
-    "types/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["api/**/*", "utils/**/*", "types/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

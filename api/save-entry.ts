@@ -1,31 +1,39 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import { validateMasterPassword, setCorsHeaders, handleOptionsRequest, createErrorResponse, createSuccessResponse } from '../utils/auth';
-import { getSupabaseClient } from '../utils/database';
+import { VercelRequest, VercelResponse } from "@vercel/node";
+import {
+  validateMasterPassword,
+  setCorsHeaders,
+  handleOptionsRequest,
+  createErrorResponse,
+  createSuccessResponse,
+} from "../utils/auth";
+import { getSupabaseClient } from "../utils/database";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Handle CORS
   setCorsHeaders(res);
-  
+
   if (handleOptionsRequest(req, res)) {
     return;
   }
 
-  if (req.method !== 'POST') {
-    res.status(405).json(createErrorResponse('Method not allowed'));
+  if (req.method !== "POST") {
+    res.status(405).json(createErrorResponse("Method not allowed"));
     return;
   }
 
   try {
     // Validate master password
     if (!validateMasterPassword(req)) {
-      res.status(401).json(createErrorResponse('Invalid or missing master password'));
+      res
+        .status(401)
+        .json(createErrorResponse("Invalid or missing master password"));
       return;
     }
 
     const { entry } = req.body;
 
     if (!entry) {
-      res.status(400).json(createErrorResponse('Entry data is required'));
+      res.status(400).json(createErrorResponse("Entry data is required"));
       return;
     }
 
@@ -50,14 +58,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Use upsert to insert or update
     const { data, error } = await supabase
-      .from('entry')
-      .upsert(dbEntry, { onConflict: 'id' })
+      .from("entry")
+      .upsert(dbEntry, { onConflict: "id" })
       .select()
       .single();
 
     if (error) {
-      console.error('Supabase error:', error);
-      res.status(500).json(createErrorResponse('Failed to save entry to database'));
+      console.error("Supabase error:", error);
+      res
+        .status(500)
+        .json(createErrorResponse("Failed to save entry to database"));
       return;
     }
 
@@ -84,7 +94,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.status(200).json(createSuccessResponse(savedEntry));
   } catch (error) {
-    console.error('Error saving entry:', error);
-    res.status(500).json(createErrorResponse('Internal server error while saving entry'));
+    console.error("Error saving entry:", error);
+    res
+      .status(500)
+      .json(createErrorResponse("Internal server error while saving entry"));
   }
 }
