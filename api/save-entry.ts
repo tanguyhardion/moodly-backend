@@ -51,6 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       caffeine: entry.checkboxes?.caffeine ?? false,
       gym: entry.checkboxes?.gym ?? false,
       hard_work: entry.checkboxes?.hardWork ?? false,
+      day_off: entry.checkboxes?.dayOff ?? false,
       misc: entry.checkboxes?.misc ?? false,
       note: entry.note || null,
       created_at: entry.createdAt,

@@ -61,6 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         caffeine: entry.caffeine,
         gym: entry.gym,
         hardWork: entry.hard_work,
+        dayOff: entry.day_off,
         misc: entry.misc,
       },
       note: entry.note,
