@@ -53,6 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       hard_work: entry.checkboxes?.hardWork ?? false,
       day_off: entry.checkboxes?.dayOff ?? false,
       misc: entry.checkboxes?.misc ?? false,
+      alcohol: entry.checkboxes?.alcohol ?? false,
       note: entry.note || null,
       created_at: entry.createdAt,
     };
@@ -87,6 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         caffeine: data.caffeine,
         gym: data.gym,
         hardWork: data.hard_work,
+        alcohol: data.alcohol,
         misc: data.misc,
       },
       note: data.note,
