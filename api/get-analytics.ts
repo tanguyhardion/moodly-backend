@@ -150,6 +150,7 @@ function generateInsights(entries: MoodEntry[]) {
             1,
           )} on those days vs ${avgWithout.toFixed(1)} otherwise).`,
           score: Math.abs(diff),
+          details: `Difference: ${diff > 0 ? "+" : ""}${diff.toFixed(1)} mood points`,
         });
       }
     }
@@ -195,6 +196,7 @@ function generateInsights(entries: MoodEntry[]) {
           daysOfWeek[bestDay]
         }s (Average: ${maxAvg.toFixed(1)}).`,
         score: 0.8,
+        details: `Based on ${dayValues[bestDay].length} entries`,
       });
     }
   });
@@ -219,6 +221,7 @@ function generateInsights(entries: MoodEntry[]) {
         category: "Precursor",
         text: "Good sleep often leads to better mood the next day.",
         score: sleepLagCorrelation,
+        details: `Correlation: ${sleepLagCorrelation.toFixed(2)}`,
       });
     } else if (sleepLagCorrelation < -0.3) {
       insights.push({
@@ -226,6 +229,7 @@ function generateInsights(entries: MoodEntry[]) {
         category: "Precursor",
         text: "Surprisingly, more sleep tends to be followed by lower mood the next day.",
         score: Math.abs(sleepLagCorrelation),
+        details: `Correlation: ${sleepLagCorrelation.toFixed(2)}`,
       });
     }
   }
@@ -253,6 +257,7 @@ function generateInsights(entries: MoodEntry[]) {
             1,
           )} → ${secondAvg.toFixed(1)}).`,
           score: decline,
+          details: `Change: -${decline.toFixed(1)} points`,
         });
       } else if (decline < -1) {
         insights.push({
@@ -262,6 +267,7 @@ function generateInsights(entries: MoodEntry[]) {
             1,
           )} → ${secondAvg.toFixed(1)}).`,
           score: Math.abs(decline),
+          details: `Change: +${Math.abs(decline).toFixed(1)} points`,
         });
       }
     });
@@ -290,6 +296,7 @@ function generateInsights(entries: MoodEntry[]) {
             1,
           )} vs ${workAvg.toFixed(1)} on work days).`,
           score: Math.abs(diff),
+          details: `Difference: ${diff > 0 ? "+" : ""}${diff.toFixed(1)} points`,
         });
       }
     });
@@ -343,6 +350,7 @@ function generateInsights(entries: MoodEntry[]) {
               1,
             )} vs ${habit1Avg.toFixed(1)} and ${habit2Avg.toFixed(1)}).`,
             score: synergy,
+            details: `Synergy Bonus: +${synergy.toFixed(1)} points`,
           });
         }
       }
