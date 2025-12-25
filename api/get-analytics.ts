@@ -23,6 +23,14 @@ interface MoodEntry {
   };
 }
 
+interface Insight {
+  type: string;
+  category: string;
+  text: string;
+  score: number;
+  details: string;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
 
@@ -96,8 +104,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-function generateInsights(entries: MoodEntry[]) {
-  const insights: any[] = [];
+function generateInsights(entries: MoodEntry[]): Insight[] {
+  const insights: Insight[] = [];
   const metrics = ["mood", "energy", "sleep", "focus"];
   const checkboxes = Array.from(
     new Set(entries.flatMap((e) => Object.keys(e.checkboxes))),
