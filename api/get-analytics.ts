@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         createSuccessResponse({
           insights: [],
           message: "Not enough data for analytics (need at least 5 entries)",
-        })
+        }),
       );
       return;
     }
@@ -100,7 +100,7 @@ function generateInsights(entries: MoodEntry[]) {
   const insights: any[] = [];
   const metrics = ["mood", "energy", "sleep", "focus"];
   const checkboxes = Array.from(
-    new Set(entries.flatMap((e) => Object.keys(e.checkboxes)))
+    new Set(entries.flatMap((e) => Object.keys(e.checkboxes))),
   );
 
   // 1. Correlation Insights (Mood vs Habits)
@@ -109,14 +109,19 @@ function generateInsights(entries: MoodEntry[]) {
     const moodValues = entries.map((e) => e.metrics.mood);
 
     // Only calculate if we have variation
-    if (ss.standardDeviation(habitValues) > 0 && ss.standardDeviation(moodValues) > 0) {
+    if (
+      ss.standardDeviation(habitValues) > 0 &&
+      ss.standardDeviation(moodValues) > 0
+    ) {
       const correlation = ss.sampleCorrelation(habitValues, moodValues);
       if (Math.abs(correlation) > 0.3) {
         const direction = correlation > 0 ? "improves" : "worsens";
         insights.push({
           type: "correlation",
           category: "Habit Impact",
-          text: `Your mood tends to ${direction} when you ${formatHabit(habit)}.`,
+          text: `Your mood tends to ${direction} when you ${formatHabit(
+            habit,
+          )}.`,
           score: Math.abs(correlation),
           details: `Correlation: ${correlation.toFixed(2)}`,
         });
@@ -139,14 +144,18 @@ function generateInsights(entries: MoodEntry[]) {
         insights.push({
           type: "comparative",
           category: "Comparison",
-          text: `You feel ${better} on days with ${formatHabit(habit)} (average of ${avgWith.toFixed(1)} on those days vs ${avgWithout.toFixed(1)} otherwise).`,
+          text: `You feel ${better} on days with ${formatHabit(
+            habit,
+          )} (average of ${avgWith.toFixed(
+            1,
+          )} on those days vs ${avgWithout.toFixed(1)} otherwise).`,
           score: Math.abs(diff),
         });
       }
     }
   });
 
-  // 3. Pattern Insights (Day of Week)
+  // 3. Pattern Insights (Day of Week) - For all metrics
   const daysOfWeek = [
     "Sunday",
     "Monday",
@@ -156,54 +165,189 @@ function generateInsights(entries: MoodEntry[]) {
     "Friday",
     "Saturday",
   ];
-  const dayMoods: { [key: number]: number[] } = {};
 
-  entries.forEach((entry) => {
-    const day = new Date(entry.date).getDay();
-    if (!dayMoods[day]) dayMoods[day] = [];
-    dayMoods[day].push(entry.metrics.mood);
-  });
+  metrics.forEach((metric) => {
+    const dayValues: { [key: number]: number[] } = {};
 
-  let bestDay = -1;
-  let maxAvg = -1;
+    entries.forEach((entry) => {
+      const day = new Date(entry.date).getDay();
+      if (!dayValues[day]) dayValues[day] = [];
+      dayValues[day].push(entry.metrics[metric as keyof typeof entry.metrics]);
+    });
 
-  Object.keys(dayMoods).forEach((dayStr) => {
-    const day = parseInt(dayStr);
-    const avg = ss.mean(dayMoods[day]);
-    if (avg > maxAvg) {
-      maxAvg = avg;
-      bestDay = day;
+    let bestDay = -1;
+    let maxAvg = -1;
+
+    Object.keys(dayValues).forEach((dayStr) => {
+      const day = parseInt(dayStr);
+      const avg = ss.mean(dayValues[day]);
+      if (avg > maxAvg) {
+        maxAvg = avg;
+        bestDay = day;
+      }
+    });
+
+    if (bestDay !== -1) {
+      insights.push({
+        type: "pattern",
+        category: "Weekly Trend",
+        text: `Your ${metric} peaks on ${
+          daysOfWeek[bestDay]
+        }s (Average: ${maxAvg.toFixed(1)}).`,
+        score: 0.8,
+      });
     }
   });
 
-  if (bestDay !== -1) {
-    insights.push({
-      type: "pattern",
-      category: "Weekly Trend",
-      text: `Your mood peaks on ${daysOfWeek[bestDay]}s (Average: ${maxAvg.toFixed(1)}).`,
-      score: 0.8, // Static score for now
+  // 4. Trigger Insights (Precursors - Lag 1)
+  // Check if yesterday's low sleep affects today's mood
+  const sleepValues = entries.slice(0, -1).map((e) => e.metrics.sleep);
+  const nextDayMoodValues = entries.slice(1).map((e) => e.metrics.mood);
+
+  if (
+    sleepValues.length > 0 &&
+    ss.standardDeviation(sleepValues) > 0 &&
+    ss.standardDeviation(nextDayMoodValues) > 0
+  ) {
+    const sleepLagCorrelation = ss.sampleCorrelation(
+      sleepValues,
+      nextDayMoodValues,
+    );
+    if (sleepLagCorrelation > 0.3) {
+      insights.push({
+        type: "trigger",
+        category: "Precursor",
+        text: "Good sleep often leads to better mood the next day.",
+        score: sleepLagCorrelation,
+      });
+    } else if (sleepLagCorrelation < -0.3) {
+      insights.push({
+        type: "trigger",
+        category: "Precursor",
+        text: "Surprisingly, more sleep tends to be followed by lower mood the next day.",
+        score: Math.abs(sleepLagCorrelation),
+      });
+    }
+  }
+
+  // 5. Metric Deterioration Trends
+  if (entries.length >= 10) {
+    const midpoint = Math.floor(entries.length / 2);
+    const firstHalf = entries.slice(0, midpoint);
+    const secondHalf = entries.slice(midpoint);
+
+    metrics.forEach((metric) => {
+      const firstAvg = ss.mean(
+        firstHalf.map((e) => e.metrics[metric as keyof typeof e.metrics]),
+      );
+      const secondAvg = ss.mean(
+        secondHalf.map((e) => e.metrics[metric as keyof typeof e.metrics]),
+      );
+      const decline = firstAvg - secondAvg;
+
+      if (decline > 1) {
+        insights.push({
+          type: "trend",
+          category: "Warning",
+          text: `Your ${metric} has declined recently (${firstAvg.toFixed(
+            1,
+          )} → ${secondAvg.toFixed(1)}).`,
+          score: decline,
+        });
+      } else if (decline < -1) {
+        insights.push({
+          type: "trend",
+          category: "Improvement",
+          text: `Your ${metric} is improving over time (${firstAvg.toFixed(
+            1,
+          )} → ${secondAvg.toFixed(1)}).`,
+          score: Math.abs(decline),
+        });
+      }
     });
   }
 
-  // 4. Trigger Insights (Precursors - Lag 1)
-  // Check if yesterday's low sleep affects today's mood
-  const sleepValues = entries.slice(0, -1).map(e => e.metrics.sleep);
-  const nextDayMoodValues = entries.slice(1).map(e => e.metrics.mood);
-  
-  if (sleepValues.length > 0 && ss.standardDeviation(sleepValues) > 0 && ss.standardDeviation(nextDayMoodValues) > 0) {
-      const sleepLagCorrelation = ss.sampleCorrelation(sleepValues, nextDayMoodValues);
-      if (sleepLagCorrelation > 0.3) {
-           insights.push({
-              type: "trigger",
-              category: "Precursor",
-              text: "Good sleep often leads to better mood the next day.",
-              score: sleepLagCorrelation
-           });
-      } else if (sleepLagCorrelation < -0.3) {
-           // Rare, but maybe "Too much sleep makes me groggy?"
+  // 6. Rest Day Impact
+  const restDayEntries = entries.filter((e) => e.checkboxes.dayOff);
+  const workDayEntries = entries.filter((e) => !e.checkboxes.dayOff);
+
+  if (restDayEntries.length > 0 && workDayEntries.length > 0) {
+    metrics.forEach((metric) => {
+      const restAvg = ss.mean(
+        restDayEntries.map((e) => e.metrics[metric as keyof typeof e.metrics]),
+      );
+      const workAvg = ss.mean(
+        workDayEntries.map((e) => e.metrics[metric as keyof typeof e.metrics]),
+      );
+      const diff = restAvg - workAvg;
+
+      if (Math.abs(diff) > 0.5) {
+        const better = diff > 0 ? "higher" : "lower";
+        insights.push({
+          type: "rest_day",
+          category: "Rest Day Impact",
+          text: `Your ${metric} is ${better} on rest days (${restAvg.toFixed(
+            1,
+          )} vs ${workAvg.toFixed(1)} on work days).`,
+          score: Math.abs(diff),
+        });
       }
+    });
   }
 
+  // 7. Optimal Habit Combinations (Synergy Detection)
+  for (let i = 0; i < checkboxes.length; i++) {
+    for (let j = i + 1; j < checkboxes.length; j++) {
+      const habit1 = checkboxes[i];
+      const habit2 = checkboxes[j];
+
+      const bothHabits = entries.filter(
+        (e) => e.checkboxes[habit1] && e.checkboxes[habit2],
+      );
+      const onlyHabit1 = entries.filter(
+        (e) => e.checkboxes[habit1] && !e.checkboxes[habit2],
+      );
+      const onlyHabit2 = entries.filter(
+        (e) => !e.checkboxes[habit1] && e.checkboxes[habit2],
+      );
+      const neitherHabit = entries.filter(
+        (e) => !e.checkboxes[habit1] && !e.checkboxes[habit2],
+      );
+
+      // Need enough data for each combination
+      if (
+        bothHabits.length >= 2 &&
+        onlyHabit1.length >= 2 &&
+        onlyHabit2.length >= 2
+      ) {
+        const bothAvg = ss.mean(bothHabits.map((e) => e.metrics.mood));
+        const habit1Avg = ss.mean(onlyHabit1.map((e) => e.metrics.mood));
+        const habit2Avg = ss.mean(onlyHabit2.map((e) => e.metrics.mood));
+        const neitherAvg =
+          neitherHabit.length > 0
+            ? ss.mean(neitherHabit.map((e) => e.metrics.mood))
+            : 0;
+
+        // Calculate expected mood if habits were independent
+        const expectedCombined = Math.max(habit1Avg, habit2Avg);
+        const synergy = bothAvg - expectedCombined;
+
+        // If the combination is significantly better than either alone
+        if (synergy > 0.7) {
+          insights.push({
+            type: "synergy",
+            category: "Habit Synergy",
+            text: `${formatHabit(habit1)} + ${formatHabit(
+              habit2,
+            )} together boost your mood more than either alone (${bothAvg.toFixed(
+              1,
+            )} vs ${habit1Avg.toFixed(1)} and ${habit2Avg.toFixed(1)}).`,
+            score: synergy,
+          });
+        }
+      }
+    }
+  }
 
   // Sort by score/relevance
   return insights.sort((a, b) => b.score - a.score);
