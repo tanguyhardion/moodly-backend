@@ -1,4 +1,4 @@
-export interface MoodEntry {
+export interface DailyEntry {
   id: string;
   date: string;
   metrics: {
@@ -14,7 +14,7 @@ export interface MoodEntry {
 
 export interface Insight {
   type: string;
-  category: string;
+  label: string;
   text: string;
   score: number;
   details?: string;

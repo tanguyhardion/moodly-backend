@@ -9,7 +9,7 @@ import {
 import { getSupabaseClient } from "../utils/database";
 import { formatHabit, getHabitAction } from "../utils/helpers";
 import * as ss from "simple-statistics";
-import { MoodEntry, Insight } from "../types";
+import { DailyEntry, Insight } from "../types";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const entries: MoodEntry[] = data.map((entry: any) => ({
+    const entries: DailyEntry[] = data.map((entry: any) => ({
       id: entry.id,
       date: entry.date,
       metrics: {
@@ -84,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-function generateInsights(entries: MoodEntry[]): Insight[] {
+function generateInsights(entries: DailyEntry[]): Insight[] {
   const insights: Insight[] = [];
   const metrics = ["mood", "energy", "sleep", "focus"];
   const checkboxes = Array.from(
@@ -118,7 +118,7 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
 
           insights.push({
             type: "habit-impact",
-            category: "Habit Impact",
+            label: "Habit Impact",
             text: text,
             score: Math.abs(correlation),
           });
@@ -142,7 +142,7 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
           const relationship = correlation > 0 ? "positive" : "negative";
           insights.push({
             type: "metric-connection",
-            category: "Metric Connection",
+            label: "Metric Connection",
             text: `There is a strong ${relationship} link between your ${m1} and ${m2}.`,
             score: Math.abs(correlation),
           });
@@ -164,13 +164,13 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
         const correlation = ss.sampleCorrelation(v1, v2);
         if (Math.abs(correlation) > 0.4) {
           const relationship =
-            correlation > 0 ? "often happen together" : "rarely happen together";
+            correlation > 0
+              ? "often happen together"
+              : "rarely happen together";
           insights.push({
             type: "habit-pattern",
-            category: "Habit Pattern",
-            text: `${formatHabit(h1)} and ${formatHabit(
-              h2,
-            )} ${relationship}.`,
+            label: "Habit Pattern",
+            text: `${formatHabit(h1)} and ${formatHabit(h2)} ${relationship}.`,
             score: Math.abs(correlation),
           });
         }
@@ -191,8 +191,8 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
       if (Math.abs(diff) > 0.5) {
         const better = diff > 0 ? "better" : "worse";
         insights.push({
-          type: "comparative",
-          category: "Comparison",
+          type: "habit-comparison",
+          label: "Comparison",
           text: `You feel ${better} on days with ${formatHabit(
             habit,
           )} (average of ${avgWith.toFixed(
@@ -239,8 +239,8 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
 
     if (bestDay !== -1) {
       insights.push({
-        type: "pattern",
-        category: "Weekly Trend",
+        type: "weekly-trend",
+        label: "Weekly Trend",
         text: `Your ${metric} peaks on ${
           daysOfWeek[bestDay]
         }s (Average: ${maxAvg.toFixed(1)}).`,
@@ -267,7 +267,7 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
     if (sleepLagCorrelation > 0.3) {
       insights.push({
         type: "trigger",
-        category: "Precursor",
+        label: "Precursor",
         text: "Good sleep often leads to better mood the next day.",
         score: sleepLagCorrelation,
         details: `Correlation: ${sleepLagCorrelation.toFixed(2)}`,
@@ -275,7 +275,7 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
     } else if (sleepLagCorrelation < -0.3) {
       insights.push({
         type: "trigger",
-        category: "Precursor",
+        label: "Precursor",
         text: "Surprisingly, more sleep tends to be followed by lower mood the next day.",
         score: Math.abs(sleepLagCorrelation),
         details: `Correlation: ${sleepLagCorrelation.toFixed(2)}`,
@@ -300,8 +300,8 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
 
       if (decline > 1) {
         insights.push({
-          type: "trend",
-          category: "Warning",
+          type: "long-term-trend",
+          label: "Warning",
           text: `Your ${metric} has declined recently (${firstAvg.toFixed(
             1,
           )} → ${secondAvg.toFixed(1)}).`,
@@ -310,8 +310,8 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
         });
       } else if (decline < -1) {
         insights.push({
-          type: "trend",
-          category: "Improvement",
+          type: "long-term-trend",
+          label: "Improvement",
           text: `Your ${metric} is improving over time (${firstAvg.toFixed(
             1,
           )} → ${secondAvg.toFixed(1)}).`,
@@ -363,7 +363,7 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
         if (synergy > 0.7) {
           insights.push({
             type: "synergy",
-            category: "Habit Synergy",
+            label: "Habit Synergy",
             text: `${formatHabit(habit1)} + ${formatHabit(
               habit2,
             )} together boost your mood more than either alone (${bothAvg.toFixed(
@@ -380,4 +380,3 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
   // Sort by score/relevance
   return insights.sort((a, b) => b.score - a.score);
 }
-
