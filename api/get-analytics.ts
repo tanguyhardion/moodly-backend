@@ -69,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Even with little data, calculate streak
       const dates = entries.map((e) => e.date);
       const streakData = calculateStreak(dates);
-      
+
       res.status(200).json(
         createSuccessResponse({
           insights: [],
@@ -81,12 +81,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const insights = generateInsights(entries);
-    
+
     // Calculate streak data
     const dates = entries.map((e) => e.date);
     const streakData = calculateStreak(dates);
 
-    res.status(200).json(createSuccessResponse({ insights, streak: streakData }));
+    res
+      .status(200)
+      .json(createSuccessResponse({ insights, streak: streakData }));
   } catch (error: any) {
     console.error("Analytics error:", error);
     res.status(500).json(createErrorResponse(error.message));
