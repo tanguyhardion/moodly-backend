@@ -7,7 +7,7 @@ import {
   createSuccessResponse,
 } from "../utils/auth";
 import { getSupabaseClient } from "../utils/database";
-import { formatHabit, getHabitAction } from "../utils/helpers";
+import { formatHabit, getHabitAction, calculateStreak } from "../utils/helpers";
 import * as ss from "simple-statistics";
 import { DailyEntry, Insight } from "../types";
 
@@ -66,9 +66,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }));
 
     if (entries.length < 5) {
+      // Even with little data, calculate streak
+      const dates = entries.map((e) => e.date);
+      const streakData = calculateStreak(dates);
+      
       res.status(200).json(
         createSuccessResponse({
           insights: [],
+          streak: streakData,
           message: "Not enough data for analytics (need at least 5 entries)",
         }),
       );
@@ -76,8 +81,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const insights = generateInsights(entries);
+    
+    // Calculate streak data
+    const dates = entries.map((e) => e.date);
+    const streakData = calculateStreak(dates);
 
-    res.status(200).json(createSuccessResponse({ insights }));
+    res.status(200).json(createSuccessResponse({ insights, streak: streakData }));
   } catch (error: any) {
     console.error("Analytics error:", error);
     res.status(500).json(createErrorResponse(error.message));

@@ -19,3 +19,9 @@ export interface Insight {
   score: number;
   details?: string;
 }
+
+export interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  lastEntryDate: string | null;
+}
