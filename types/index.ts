@@ -17,5 +17,5 @@ export interface Insight {
   category: string;
   text: string;
   score: number;
-  details: string;
+  details?: string;
 }

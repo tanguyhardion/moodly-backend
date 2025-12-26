@@ -7,6 +7,7 @@ import {
   createSuccessResponse,
 } from "../utils/auth";
 import { getSupabaseClient } from "../utils/database";
+import { formatHabit, getHabitAction } from "../utils/helpers";
 import * as ss from "simple-statistics";
 import { MoodEntry, Insight } from "../types";
 
@@ -90,31 +91,92 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
     new Set(entries.flatMap((e) => Object.keys(e.checkboxes))),
   );
 
-  // 1. Correlation Insights (Mood vs Habits)
-  checkboxes.forEach((habit) => {
-    const habitValues = entries.map((e) => (e.checkboxes[habit] ? 1 : 0));
-    const moodValues = entries.map((e) => e.metrics.mood);
+  // 1. Metric vs Habit Correlations (Inter metric-habit)
+  metrics.forEach((metric) => {
+    checkboxes.forEach((habit) => {
+      const habitValues = entries.map((e) => (e.checkboxes[habit] ? 1 : 0));
+      const metricValues = entries.map(
+        (e) => e.metrics[metric as keyof typeof e.metrics],
+      );
 
-    // Only calculate if we have variation
-    if (
-      ss.standardDeviation(habitValues) > 0 &&
-      ss.standardDeviation(moodValues) > 0
-    ) {
-      const correlation = ss.sampleCorrelation(habitValues, moodValues);
-      if (Math.abs(correlation) > 0.3) {
-        const direction = correlation > 0 ? "improves" : "worsens";
-        insights.push({
-          type: "correlation",
-          category: "Habit Impact",
-          text: `Your mood tends to ${direction} when you ${formatHabit(
-            habit,
-          )}.`,
-          score: Math.abs(correlation),
-          details: `Correlation: ${correlation.toFixed(2)}`,
-        });
+      // Only calculate if we have variation
+      if (
+        ss.standardDeviation(habitValues) > 0 &&
+        ss.standardDeviation(metricValues) > 0
+      ) {
+        const correlation = ss.sampleCorrelation(habitValues, metricValues);
+        if (Math.abs(correlation) > 0.3) {
+          const direction = correlation > 0 ? "improves" : "worsens";
+          const text =
+            metric === "mood"
+              ? `Your mood tends to ${direction} when you ${getHabitAction(
+                  habit,
+                )}.`
+              : `Your ${metric} tends to be ${
+                  correlation > 0 ? "higher" : "lower"
+                } when you ${getHabitAction(habit)}.`;
+
+          insights.push({
+            type: "habit-impact",
+            category: "Habit Impact",
+            text: text,
+            score: Math.abs(correlation),
+          });
+        }
+      }
+    });
+  });
+
+  // 1b. Intra-metric Correlations
+  for (let i = 0; i < metrics.length; i++) {
+    for (let j = i + 1; j < metrics.length; j++) {
+      const m1 = metrics[i];
+      const m2 = metrics[j];
+
+      const v1 = entries.map((e) => e.metrics[m1 as keyof typeof e.metrics]);
+      const v2 = entries.map((e) => e.metrics[m2 as keyof typeof e.metrics]);
+
+      if (ss.standardDeviation(v1) > 0 && ss.standardDeviation(v2) > 0) {
+        const correlation = ss.sampleCorrelation(v1, v2);
+        if (Math.abs(correlation) > 0.4) {
+          const relationship = correlation > 0 ? "positive" : "negative";
+          insights.push({
+            type: "metric-connection",
+            category: "Metric Connection",
+            text: `There is a strong ${relationship} link between your ${m1} and ${m2}.`,
+            score: Math.abs(correlation),
+          });
+        }
       }
     }
-  });
+  }
+
+  // 1c. Intra-habit Correlations
+  for (let i = 0; i < checkboxes.length; i++) {
+    for (let j = i + 1; j < checkboxes.length; j++) {
+      const h1 = checkboxes[i];
+      const h2 = checkboxes[j];
+
+      const v1 = entries.map((e) => (e.checkboxes[h1] ? 1 : 0));
+      const v2 = entries.map((e) => (e.checkboxes[h2] ? 1 : 0));
+
+      if (ss.standardDeviation(v1) > 0 && ss.standardDeviation(v2) > 0) {
+        const correlation = ss.sampleCorrelation(v1, v2);
+        if (Math.abs(correlation) > 0.4) {
+          const relationship =
+            correlation > 0 ? "often happen together" : "rarely happen together";
+          insights.push({
+            type: "habit-pattern",
+            category: "Habit Pattern",
+            text: `${formatHabit(h1)} and ${formatHabit(
+              h2,
+            )} ${relationship}.`,
+            score: Math.abs(correlation),
+          });
+        }
+      }
+    }
+  }
 
   // 2. Comparative Insights (Average Mood with vs without habit)
   checkboxes.forEach((habit) => {
@@ -260,36 +322,7 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
     });
   }
 
-  // 6. Day Off vs Work Day Impact
-  const restDayEntries = entries.filter((e) => e.checkboxes.dayOff);
-  const workDayEntries = entries.filter((e) => !e.checkboxes.dayOff);
-
-  if (restDayEntries.length > 0 && workDayEntries.length > 0) {
-    metrics.forEach((metric) => {
-      const restAvg = ss.mean(
-        restDayEntries.map((e) => e.metrics[metric as keyof typeof e.metrics]),
-      );
-      const workAvg = ss.mean(
-        workDayEntries.map((e) => e.metrics[metric as keyof typeof e.metrics]),
-      );
-      const diff = restAvg - workAvg;
-
-      if (Math.abs(diff) > 0.5) {
-        const better = diff > 0 ? "higher" : "lower";
-        insights.push({
-          type: "day_off",
-          category: "Day Off Impact",
-          text: `Your ${metric} is ${better} on days off (${restAvg.toFixed(
-            1,
-          )} vs ${workAvg.toFixed(1)} on work days).`,
-          score: Math.abs(diff),
-          details: `Difference: ${diff > 0 ? "+" : ""}${diff.toFixed(1)} points`,
-        });
-      }
-    });
-  }
-
-  // 7. Optimal Habit Combinations (Synergy Detection)
+  // 6. Optimal Habit Combinations (Synergy Detection)
   for (let i = 0; i < checkboxes.length; i++) {
     for (let j = i + 1; j < checkboxes.length; j++) {
       const habit1 = checkboxes[i];
@@ -348,10 +381,3 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
   return insights.sort((a, b) => b.score - a.score);
 }
 
-function formatHabit(key: string): string {
-  // Convert camelCase to readable text
-  return key
-    .replace(/([A-Z])/g, " $1")
-    .toLowerCase()
-    .replace(/^./, (str) => str.toUpperCase());
-}
