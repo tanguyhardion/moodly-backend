@@ -260,7 +260,7 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
     });
   }
 
-  // 6. Rest Day Impact
+  // 6. Day Off vs Work Day Impact
   const restDayEntries = entries.filter((e) => e.checkboxes.dayOff);
   const workDayEntries = entries.filter((e) => !e.checkboxes.dayOff);
 
@@ -277,9 +277,9 @@ function generateInsights(entries: MoodEntry[]): Insight[] {
       if (Math.abs(diff) > 0.5) {
         const better = diff > 0 ? "higher" : "lower";
         insights.push({
-          type: "rest_day",
-          category: "Rest Day Impact",
-          text: `Your ${metric} is ${better} on rest days (${restAvg.toFixed(
+          type: "day_off",
+          category: "Day Off Impact",
+          text: `Your ${metric} is ${better} on days off (${restAvg.toFixed(
             1,
           )} vs ${workAvg.toFixed(1)} on work days).`,
           score: Math.abs(diff),
