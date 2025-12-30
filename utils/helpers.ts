@@ -1,3 +1,5 @@
+import { DailyEntry, AppSettings } from "../types";
+
 export function formatHabit(key: string): string {
   // Convert camelCase to readable text
   return key
@@ -105,5 +107,85 @@ export function calculateStreak(dates: string[]): StreakData {
     currentStreak,
     longestStreak: Math.max(longestStreak, currentStreak),
     lastEntryDate: sortedDates[0],
+  };
+}
+
+/**
+ * Maps a database entry row to the DailyEntry application type
+ * @param entry - The raw database entry from Supabase
+ * @returns A formatted DailyEntry object
+ */
+export function mapDatabaseEntryToDailyEntry(entry: any): DailyEntry {
+  return {
+    id: entry.id,
+    date: entry.date,
+    metrics: {
+      mood: entry.mood,
+      energy: entry.energy,
+      sleep: entry.sleep,
+      focus: entry.focus,
+    },
+    checkboxes: {
+      healthyFood: entry.healthy_food,
+      caffeine: entry.caffeine,
+      gym: entry.gym,
+      hardWork: entry.hard_work,
+      dayOff: entry.day_off,
+      alcohol: entry.alcohol,
+      misc: entry.misc,
+    },
+    note: entry.note,
+    createdAt: entry.created_at,
+  };
+}
+
+/**
+ * Maps a DailyEntry application object to a database row format
+ * @param entry - The DailyEntry object from the application
+ * @returns A formatted database row object
+ */
+export function mapDailyEntryToDatabaseEntry(entry: DailyEntry): any {
+  return {
+    id: entry.id,
+    date: entry.date,
+    mood: entry.metrics.mood,
+    energy: entry.metrics.energy,
+    sleep: entry.metrics.sleep,
+    focus: entry.metrics.focus,
+    healthy_food: entry.checkboxes?.healthyFood ?? false,
+    caffeine: entry.checkboxes?.caffeine ?? false,
+    gym: entry.checkboxes?.gym ?? false,
+    hard_work: entry.checkboxes?.hardWork ?? false,
+    day_off: entry.checkboxes?.dayOff ?? false,
+    alcohol: entry.checkboxes?.alcohol ?? false,
+    misc: entry.checkboxes?.misc ?? false,
+    note: entry.note || null,
+    created_at: entry.createdAt,
+  };
+}
+
+/**
+ * Maps database settings to AppSettings type
+ * @param settings - Raw database settings
+ * @returns Formatted AppSettings object
+ */
+export function mapDatabaseSettingsToAppSettings(settings: any): AppSettings {
+  return {
+    email: settings.email || "",
+    weeklyUpdates: settings.weekly_updates || false,
+    monthlyUpdates: settings.monthly_updates || false,
+  };
+}
+
+/**
+ * Maps AppSettings to database settings format
+ * @param settings - AppSettings object
+ * @returns Formatted database settings object
+ */
+export function mapAppSettingsToDatabaseSettings(settings: AppSettings): any {
+  return {
+    email: settings.email,
+    weekly_updates: settings.weeklyUpdates,
+    monthly_updates: settings.monthlyUpdates,
   };
 }

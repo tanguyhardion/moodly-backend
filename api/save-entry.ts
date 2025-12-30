@@ -7,6 +7,7 @@ import {
   createSuccessResponse,
 } from "../utils/auth";
 import { getSupabaseClient } from "../utils/database";
+import { mapDailyEntryToDatabaseEntry } from "../utils/helpers";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Handle CORS
@@ -40,23 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = getSupabaseClient();
 
     // Transform app format to database format
-    const dbEntry = {
-      id: entry.id,
-      date: entry.date,
-      mood: entry.metrics.mood,
-      energy: entry.metrics.energy,
-      sleep: entry.metrics.sleep,
-      focus: entry.metrics.focus,
-      healthy_food: entry.checkboxes?.healthyFood ?? false,
-      caffeine: entry.checkboxes?.caffeine ?? false,
-      gym: entry.checkboxes?.gym ?? false,
-      hard_work: entry.checkboxes?.hardWork ?? false,
-      day_off: entry.checkboxes?.dayOff ?? false,
-      misc: entry.checkboxes?.misc ?? false,
-      alcohol: entry.checkboxes?.alcohol ?? false,
-      note: entry.note || null,
-      created_at: entry.createdAt,
-    };
+    const dbEntry = mapDailyEntryToDatabaseEntry(entry);
 
     // Use upsert to insert or update
     const { data, error } = await supabase

@@ -56,7 +56,7 @@ export function generateEmailTemplate(
   period: "Weekly" | "Monthly",
   entries: DailyEntry[],
   startDate: string,
-  endDate: string
+  endDate: string,
 ): string {
   const stats = calculateStats(entries);
 
@@ -70,66 +70,203 @@ export function generateEmailTemplate(
     <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        body { font-family: sans-serif; color: #333; line-height: 1.6; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .card { background: #f9fafb; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        .metric-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .metric-label { font-weight: bold; }
-        .metric-value { font-weight: bold; }
-        .tag-list { list-style: none; padding: 0; }
-        .tag-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
-        .footer { text-align: center; font-size: 12px; color: #888; margin-top: 30px; }
+        body { 
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+          color: #374151; 
+          line-height: 1.5; 
+          margin: 0; 
+          padding: 0;
+          background-color: #f3f4f6;
+        }
+        .wrapper {
+          width: 100%;
+          table-layout: fixed;
+          background-color: #f3f4f6;
+          padding-bottom: 40px;
+        }
+        .container { 
+          max-width: 600px; 
+          margin: 0 auto; 
+          background-color: #ffffff;
+          border-radius: 16px;
+          margin-top: 40px;
+          overflow: hidden;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .header { 
+          background: linear-gradient(135deg, #ff6b9d 0%, #ffa06b 100%);
+          padding: 40px 20px; 
+          text-align: center; 
+          color: white;
+        }
+        .logo {
+          width: 64px;
+          height: 64px;
+          margin-bottom: 16px;
+          border-radius: 16px;
+        }
+        .header h1 { 
+          margin: 0; 
+          font-size: 28px;
+          font-weight: 800;
+          letter-spacing: -0.025em;
+        }
+        .header p {
+          margin: 8px 0 0;
+          opacity: 0.9;
+          font-size: 16px;
+        }
+        .content {
+          padding: 32px 24px;
+        }
+        .card { 
+          background: #f9fafb; 
+          padding: 24px; 
+          border-radius: 12px; 
+          margin-bottom: 24px; 
+          border: 1px solid #f3f4f6;
+        }
+        .card h2 {
+          margin-top: 0;
+          font-size: 18px;
+          font-weight: 700;
+          color: #111827;
+          margin-bottom: 16px;
+        }
+        .metric-row { 
+          display: block;
+          margin-bottom: 16px; 
+          background: white;
+          padding: 12px 16px;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+        }
+        .metric-label { 
+          font-size: 12px;
+          font-weight: 600; 
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          display: block;
+          margin-bottom: 4px;
+        }
+        .metric-value { 
+          font-size: 20px;
+          font-weight: 800; 
+          color: #111827;
+        }
+        .tag-table { width: 100%; border-collapse: collapse; }
+        .tag-item-row td { 
+          padding: 12px 0; 
+          border-bottom: 1px solid #e5e7eb; 
+        }
+        .tag-item-row:last-child td { border-bottom: none; }
+        .tag-name { font-weight: 600; color: #4b5563; }
+        .tag-count-cell { text-align: right; }
+        .tag-count { 
+          background: #e5e7eb; 
+          color: #4b5563; 
+          padding: 2px 10px; 
+          border-radius: 20px; 
+          font-size: 12px; 
+          font-weight: 700;
+          display: inline-block;
+        }
+        .footer { 
+          text-align: center; 
+          font-size: 13px; 
+          color: #9ca3af; 
+          margin-top: 20px; 
+          padding: 0 20px;
+        }
+        .cta-container {
+          text-align: center;
+          margin-top: 8px;
+        }
+        .button {
+          display: inline-block;
+          background: linear-gradient(135deg, #ff6b9d 0%, #ffa06b 100%);
+          color: white !important;
+          padding: 14px 28px;
+          border-radius: 10px;
+          text-decoration: none;
+          font-weight: 700;
+          font-size: 16px;
+          box-shadow: 0 4px 6px -1px rgba(255, 107, 157, 0.2);
+        }
       </style>
     </head>
     <body>
-      <div class="container">
-        <div class="header">
-          <h1>Your ${period} Moodly Recap</h1>
-          <p>${startDate} - ${endDate}</p>
-        </div>
+      <div class="wrapper">
+        <div class="container">
+          <div class="header">
+            <img src="https://tanguyhardion.github.io/moodly/logo.png" alt="Moodly Logo" class="logo">
+            <h1>Moodly Recap</h1>
+            <p>${period} Update: ${startDate} - ${endDate}</p>
+          </div>
 
-        <div class="card">
-          <h2>Overview</h2>
-          <p>You tracked your mood <strong>${stats.totalEntries}</strong> times this ${period.toLowerCase()}.</p>
-          
-          <div class="metric-row">
-            <span class="metric-label">Average Mood</span>
-            <span class="metric-value" style="color: ${moodColor(stats.avgMood)}">${stats.avgMood}/5</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">Average Energy</span>
-            <span class="metric-value">${stats.avgEnergy}/5</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">Average Sleep</span>
-            <span class="metric-value">${stats.avgSleep}/5</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">Average Focus</span>
-            <span class="metric-value">${stats.avgFocus}/5</span>
-          </div>
-        </div>
+          <div class="content">
+            <div class="card">
+              <h2>Overview</h2>
+              <p style="margin-bottom: 20px;">You tracked your mood <strong>${
+                stats.totalEntries
+              }</strong> times this ${period.toLowerCase()}. Here's how your metrics averaged out:</p>
+              
+              <div class="metric-row">
+                <span class="metric-label">Average Mood</span>
+                <span class="metric-value" style="color: ${moodColor(
+                  stats.avgMood,
+                )}">${stats.avgMood} / 5</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Average Energy</span>
+                <span class="metric-value">${stats.avgEnergy} / 5</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Average Sleep</span>
+                <span class="metric-value">${stats.avgSleep} / 5</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Average Focus</span>
+                <span class="metric-value">${stats.avgFocus} / 5</span>
+              </div>
+            </div>
 
-        <div class="card">
-          <h2>Top Activities</h2>
-          <ul class="tag-list">
-            ${stats.topTags
-              .map(
-                ([tag, count]) => `
-              <li class="tag-item">
-                <span>${tag.replace(/([A-Z])/g, " $1").trim()}</span>
-                <span>${count}x</span>
-              </li>
+            ${
+              stats.topTags.length > 0
+                ? `
+            <div class="card">
+              <h2>Top Activities</h2>
+              <table class="tag-table">
+                ${stats.topTags
+                  .map(
+                    ([tag, count]) => `
+                  <tr class="tag-item-row">
+                    <td class="tag-name">${tag
+                      .replace(/([A-Z])/g, " $1")
+                      .trim()}</td>
+                    <td class="tag-count-cell"><span class="tag-count">${count}x</span></td>
+                  </tr>
+                `,
+                  )
+                  .join("")}
+              </table>
+            </div>
             `
-              )
-              .join("")}
-          </ul>
+                : ""
+            }
+
+            <div class="cta-container">
+              <a href="https://tanguyhardion.github.io/moodly" class="button">Open Moodly</a>
+            </div>
+          </div>
         </div>
 
         <div class="footer">
-          <p>Sent by Moodly. You can change your email preferences in the app settings.</p>
+          <p>You're receiving this because you enabled ${period.toLowerCase()} updates in your Moodly settings.</p>
         </div>
       </div>
     </body>

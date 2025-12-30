@@ -7,6 +7,7 @@ import {
   createSuccessResponse,
 } from "../utils/auth";
 import { getSupabaseClient } from "../utils/database";
+import { mapDatabaseEntryToDailyEntry } from "../utils/helpers";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Handle CORS
@@ -47,27 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Transform database format to app format
-    const entries = data.map((entry: any) => ({
-      id: entry.id,
-      date: entry.date,
-      metrics: {
-        mood: entry.mood,
-        energy: entry.energy,
-        sleep: entry.sleep,
-        focus: entry.focus,
-      },
-      checkboxes: {
-        healthyFood: entry.healthy_food,
-        caffeine: entry.caffeine,
-        gym: entry.gym,
-        hardWork: entry.hard_work,
-        dayOff: entry.day_off,
-        alcohol: entry.alcohol,
-        misc: entry.misc,
-      },
-      note: entry.note,
-      createdAt: entry.created_at,
-    }));
+    const entries = data.map(mapDatabaseEntryToDailyEntry);
 
     res.status(200).json(createSuccessResponse(entries));
   } catch (error) {

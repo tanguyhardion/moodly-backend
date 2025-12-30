@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from "@vercel/node";
 import { getSupabaseClient } from "../../utils/database";
 import { sendEmail } from "../../utils/email";
 import { generateEmailTemplate } from "../../utils/email-template";
+import { mapDatabaseEntryToDailyEntry } from "../../utils/helpers";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -24,25 +25,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const now = new Date();
-    
+
     // Determine what to send
     let sendWeekly = false;
     let sendMonthly = false;
 
     // Check if triggered manually via query param
     const type = req.query.type as string;
-    if (type === 'weekly') sendWeekly = true;
-    if (type === 'monthly') sendMonthly = true;
+    if (type === "weekly") sendWeekly = true;
+    if (type === "monthly") sendMonthly = true;
 
-    // Or check dates (assuming this runs daily)
     if (!type) {
-      // Weekly: Send on Monday
-      if (now.getDay() === 1 && settingsData.weekly_updates) { // 1 = Monday
-         sendWeekly = true;
+      // Weekly: Send on Sundays (scheduled via cron)
+      if (settingsData.weekly_updates) {
+        sendWeekly = true;
       }
-      // Monthly: Send on 1st
-      if (now.getDate() === 1 && settingsData.monthly_updates) {
-         sendMonthly = true;
+      // Monthly: Send on last day of month (scheduled via cron)
+      if (settingsData.monthly_updates) {
+        sendMonthly = true;
       }
     }
 
@@ -59,15 +59,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       startDate.setDate(startDate.getDate() - 7);
 
       const { data: entries } = await supabase
-        .from("entries")
+        .from("entry")
         .select("*")
         .gte("date", startDate.toISOString().split("T")[0])
         .lte("date", endDate.toISOString().split("T")[0]);
 
       if (entries && entries.length > 0) {
-        // Map DB entries to DailyEntry type if needed, but structure usually matches
-        // Assuming DB structure matches DailyEntry roughly or is compatible
-        const html = generateEmailTemplate("Weekly", entries as any, startDate.toLocaleDateString(), endDate.toLocaleDateString());
+        const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
+        const html = generateEmailTemplate(
+          "Weekly",
+          formattedEntries,
+          startDate.toLocaleDateString(),
+          endDate.toLocaleDateString(),
+        );
         await sendEmail(settingsData.email, "Your Weekly Moodly Recap", html);
         results.push("Weekly email sent");
       }
@@ -78,15 +82,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const endDate = new Date(now);
       const startDate = new Date(now);
       startDate.setMonth(startDate.getMonth() - 1);
-      
+
       const { data: entries } = await supabase
-        .from("entries")
+        .from("entry")
         .select("*")
         .gte("date", startDate.toISOString().split("T")[0])
         .lte("date", endDate.toISOString().split("T")[0]);
 
       if (entries && entries.length > 0) {
-        const html = generateEmailTemplate("Monthly", entries as any, startDate.toLocaleDateString(), endDate.toLocaleDateString());
+        const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
+        const html = generateEmailTemplate(
+          "Monthly",
+          formattedEntries,
+          startDate.toLocaleDateString(),
+          endDate.toLocaleDateString(),
+        );
         await sendEmail(settingsData.email, "Your Monthly Moodly Recap", html);
         results.push("Monthly email sent");
       }

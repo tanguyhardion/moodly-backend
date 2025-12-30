@@ -10,6 +10,8 @@ export interface DailyEntry {
   checkboxes: {
     [key: string]: boolean;
   };
+  note?: string | null;
+  createdAt?: string;
 }
 
 export interface Insight {

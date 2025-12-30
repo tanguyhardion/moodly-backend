@@ -7,7 +7,12 @@ import {
   createSuccessResponse,
 } from "../utils/auth";
 import { getSupabaseClient } from "../utils/database";
-import { formatHabit, getHabitAction, calculateStreak } from "../utils/helpers";
+import {
+  formatHabit,
+  getHabitAction,
+  calculateStreak,
+  mapDatabaseEntryToDailyEntry,
+} from "../utils/helpers";
 import * as ss from "simple-statistics";
 import { DailyEntry, Insight } from "../types";
 
@@ -45,25 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const entries: DailyEntry[] = data.map((entry: any) => ({
-      id: entry.id,
-      date: entry.date,
-      metrics: {
-        mood: entry.mood,
-        energy: entry.energy,
-        sleep: entry.sleep,
-        focus: entry.focus,
-      },
-      checkboxes: {
-        healthyFood: entry.healthy_food,
-        caffeine: entry.caffeine,
-        gym: entry.gym,
-        hardWork: entry.hard_work,
-        dayOff: entry.day_off,
-        alcohol: entry.alcohol,
-        misc: entry.misc,
-      },
-    }));
+    const entries: DailyEntry[] = data.map(mapDatabaseEntryToDailyEntry);
 
     if (entries.length < 5) {
       // Even with little data, calculate streak
