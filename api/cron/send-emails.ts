@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  if (req.method !== "GET") {
+  if (req.method !== "POST") {
     res.status(405).json(createErrorResponse("Method not allowed"));
     return;
   }
