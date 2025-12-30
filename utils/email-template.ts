@@ -58,9 +58,7 @@ export function generateEmailTemplate(
   startDate: string,
   endDate: string,
 ): string {
-  console.log(`[DEBUG_EMAIL] Generating ${period} email template for ${entries.length} entries from ${startDate} to ${endDate}`);
   const stats = calculateStats(entries);
-  console.log("[DEBUG_EMAIL] Calculated stats:", JSON.stringify(stats));
 
   const moodColor = (val: number) => {
     if (val >= 4) return "#4ade80"; // green

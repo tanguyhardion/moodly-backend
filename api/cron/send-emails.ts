@@ -1,16 +1,41 @@
 import { VercelRequest, VercelResponse } from "@vercel/node";
+import {
+  validateMasterPassword,
+  setCorsHeaders,
+  handleOptionsRequest,
+  createErrorResponse,
+  createSuccessResponse,
+} from "../../utils/auth";
 import { getSupabaseClient } from "../../utils/database";
 import { sendEmail } from "../../utils/email";
 import { generateEmailTemplate } from "../../utils/email-template";
 import { mapDatabaseEntryToDailyEntry } from "../../utils/helpers";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  console.log("[DEBUG_EMAIL] Cron handler started");
+  // Handle CORS
+  setCorsHeaders(res);
+
+  if (handleOptionsRequest(req, res)) {
+    return;
+  }
+
+  if (req.method !== "GET") {
+    res.status(405).json(createErrorResponse("Method not allowed"));
+    return;
+  }
+
   try {
+    // Validate master password
+    if (!validateMasterPassword(req)) {
+      res
+        .status(401)
+        .json(createErrorResponse("Invalid or missing master password"));
+      return;
+    }
+
     const supabase = getSupabaseClient();
 
     // 1. Get Settings
-    console.log("[DEBUG_EMAIL] Fetching app settings...");
     const { data: settingsData, error: settingsError } = await supabase
       .from("app_settings")
       .select("*")
@@ -18,16 +43,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     if (settingsError) {
-      console.error("[DEBUG_EMAIL] Error fetching settings:", settingsError);
-      return res.status(500).json({ error: "Failed to fetch settings" });
+      console.error("Settings error:", settingsError);
+      res.status(500).json(createErrorResponse("Failed to fetch settings"));
+      return;
     }
 
     if (!settingsData || !settingsData.email) {
-      console.log("[DEBUG_EMAIL] No email configured in settings");
-      return res.status(200).json({ message: "No email configured" });
+      res.status(200).json(createSuccessResponse("No email configured"));
+      return;
     }
-
-    console.log(`[DEBUG_EMAIL] Settings found. Email: ${settingsData.email}, Weekly: ${settingsData.weekly_updates}, Monthly: ${settingsData.monthly_updates}`);
 
     const now = new Date();
 
@@ -35,9 +59,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let sendWeekly = false;
     let sendMonthly = false;
 
-    // Check if triggered manually via query param
-    const type = req.query.type as string;
-    console.log(`[DEBUG_EMAIL] Request type query param: ${type}`);
+    // Check if triggered manually via query param or body
+    const type = (req.query.type || req.body?.type) as string;
     if (type === "weekly") sendWeekly = true;
     if (type === "monthly") sendMonthly = true;
 
@@ -52,10 +75,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    console.log(`[DEBUG_EMAIL] Decision - sendWeekly: ${sendWeekly}, sendMonthly: ${sendMonthly}`);
-
     if (!sendWeekly && !sendMonthly) {
-      return res.status(200).json({ message: "Nothing to send today" });
+      res.status(200).json(createSuccessResponse("Nothing to send today"));
+      return;
     }
 
     const results = [];
@@ -66,15 +88,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const startDate = new Date(now);
       startDate.setDate(startDate.getDate() - 7);
 
-      console.log(`[DEBUG_EMAIL] Fetching entries for weekly report: ${startDate.toISOString().split("T")[0]} to ${endDate.toISOString().split("T")[0]}`);
-
       const { data: entries } = await supabase
         .from("entry")
         .select("*")
         .gte("date", startDate.toISOString().split("T")[0])
         .lte("date", endDate.toISOString().split("T")[0]);
-
-      console.log(`[DEBUG_EMAIL] Found ${entries?.length || 0} entries for weekly report`);
 
       if (entries && entries.length > 0) {
         const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
@@ -84,7 +102,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           startDate.toLocaleDateString(),
           endDate.toLocaleDateString(),
         );
-        console.log("[DEBUG_EMAIL] Calling sendEmail for weekly report...");
         await sendEmail(settingsData.email, "Your Weekly Moodly Recap", html);
         results.push("Weekly email sent");
       }
@@ -96,15 +113,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const startDate = new Date(now);
       startDate.setMonth(startDate.getMonth() - 1);
 
-      console.log(`[DEBUG_EMAIL] Fetching entries for monthly report: ${startDate.toISOString().split("T")[0]} to ${endDate.toISOString().split("T")[0]}`);
-
       const { data: entries } = await supabase
         .from("entry")
         .select("*")
         .gte("date", startDate.toISOString().split("T")[0])
         .lte("date", endDate.toISOString().split("T")[0]);
-
-      console.log(`[DEBUG_EMAIL] Found ${entries?.length || 0} entries for monthly report`);
 
       if (entries && entries.length > 0) {
         const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
@@ -114,16 +127,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           startDate.toLocaleDateString(),
           endDate.toLocaleDateString(),
         );
-        console.log("[DEBUG_EMAIL] Calling sendEmail for monthly report...");
         await sendEmail(settingsData.email, "Your Monthly Moodly Recap", html);
         results.push("Monthly email sent");
       }
     }
 
-    console.log(`[DEBUG_EMAIL] Cron job finished. Results: ${results.join(", ")}`);
-    res.status(200).json({ results });
+    res.status(200).json(createSuccessResponse({ results }));
   } catch (error: any) {
-    console.error("[DEBUG_EMAIL] Cron error:", error);
-    res.status(500).json({ error: error.message });
+    console.error("Error sending emails:", error);
+    res
+      .status(500)
+      .json(
+        createErrorResponse(
+          error.message || "Internal server error while sending emails",
+        ),
+      );
   }
 }
