@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  if (req.method !== "POST") {
+  if (req.method !== "GET") {
     res.status(405).json(createErrorResponse("Method not allowed"));
     return;
   }
@@ -59,8 +59,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let sendWeekly = false;
     let sendMonthly = false;
 
-    // Check if triggered manually via query param or body
-    const type = (req.query.type || req.body?.type) as string;
+    // Check if triggered manually via query param
+    const type = (req.query.type) as string;
     if (type === "weekly") sendWeekly = true;
     if (type === "monthly") sendMonthly = true;
 
