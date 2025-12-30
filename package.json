@@ -4,6 +4,7 @@
   "description": "Backend API for Moodly mood tracking application",
   "dependencies": {
     "@supabase/supabase-js": "^2.86.0",
+    "nodemailer": "^7.0.12",
     "simple-statistics": "^7.8.8"
   },
   "devDependencies": {
