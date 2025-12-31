@@ -127,14 +127,14 @@ export function wrapInBaseTemplate(
         }
         .button {
           display: inline-block;
-          background: linear-gradient(135deg, #ff6b9d 0%, #ffa06b 100%);
+          background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
           color: white !important;
           padding: 14px 28px;
           border-radius: 10px;
           text-decoration: none;
           font-weight: 700;
           font-size: 16px;
-          box-shadow: 0 4px 6px -1px rgba(255, 107, 157, 0.2);
+          box-shadow: 0 10px 30px -5px rgba(30, 64, 175, 0.3);
         }
       </style>
     </head>
