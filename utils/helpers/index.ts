@@ -172,8 +172,9 @@ export function mapDailyEntryToDatabaseEntry(entry: DailyEntry): any {
 export function mapDatabaseSettingsToAppSettings(settings: any): AppSettings {
   return {
     email: settings.email || "",
-    weeklyUpdates: settings.weekly_updates || false,
-    monthlyUpdates: settings.monthly_updates || false,
+    dailyReminders: settings.daily_reminders || false,
+    weeklyReports: settings.weekly_reports || false,
+    monthlyReports: settings.monthly_reports || false,
   };
 }
 
@@ -185,7 +186,8 @@ export function mapDatabaseSettingsToAppSettings(settings: any): AppSettings {
 export function mapAppSettingsToDatabaseSettings(settings: AppSettings): any {
   return {
     email: settings.email,
-    weekly_updates: settings.weeklyUpdates,
-    monthly_updates: settings.monthlyUpdates,
+    daily_reminders: settings.dailyReminders,
+    weekly_reports: settings.weeklyReports,
+    monthly_reports: settings.monthlyReports,
   };
 }

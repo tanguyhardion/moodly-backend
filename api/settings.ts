@@ -44,8 +44,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? mapDatabaseSettingsToAppSettings(data)
         : {
             email: "",
-            weeklyUpdates: false,
-            monthlyUpdates: false,
+            dailyReminders: false,
+            weeklyReports: false,
+            monthlyReports: false,
           };
 
       res.status(200).json(createSuccessResponse(settings));

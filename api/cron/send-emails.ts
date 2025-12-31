@@ -8,6 +8,7 @@ import {
 } from "../../utils/auth";
 import { getSupabaseClient } from "../../utils/database";
 import { sendEmail } from "../../utils/email";
+import { wrapInBaseTemplate } from "../../utils/email/templates/base";
 import { generateReportTemplate } from "../../utils/email/templates/report";
 import { mapDatabaseEntryToDailyEntry } from "../../utils/helpers";
 
@@ -55,32 +56,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const now = new Date();
 
-    // Determine what to send
-    let sendWeekly = false;
-    let sendMonthly = false;
+    // Determine what to send based on query param and settings
+    const type = req.query.type as string;
+    const sendDaily =
+      type === "daily-reminders" && settingsData.daily_reminders;
+    const sendWeekly = type === "weekly-reports" && settingsData.weekly_reports;
+    const sendMonthly =
+      type === "monthly-reports" && settingsData.monthly_reports;
 
-    // Check if triggered manually via query param
-    const type = (req.query.type) as string;
-    if (type === "weekly") sendWeekly = true;
-    if (type === "monthly") sendMonthly = true;
-
-    if (!type) {
-      // Weekly: Send on Sundays (scheduled via cron)
-      if (settingsData.weekly_updates) {
-        sendWeekly = true;
-      }
-      // Monthly: Send on last day of month (scheduled via cron)
-      if (settingsData.monthly_updates) {
-        sendMonthly = true;
-      }
-    }
-
-    if (!sendWeekly && !sendMonthly) {
-      res.status(200).json(createSuccessResponse("Nothing to send today"));
+    if (!sendWeekly && !sendMonthly && !sendDaily) {
+      res
+        .status(200)
+        .json(
+          createSuccessResponse(
+            `Nothing to send for type: ${type || "none"} (Settings: Daily=${!!settingsData.daily_reminders}, Weekly=${!!settingsData.weekly_reports}, Monthly=${!!settingsData.monthly_reports})`,
+          ),
+        );
       return;
     }
 
     const results = [];
+
+    if (sendDaily) {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: todayEntry } = await supabase
+        .from("entry")
+        .select("id")
+        .eq("date", today)
+        .maybeSingle();
+
+      if (!todayEntry) {
+        const html = wrapInBaseTemplate(
+          `
+          <div class="card">
+            <h2>Don't forget your check-in!</h2>
+            <p>You haven't recorded your mood for today yet. Taking a moment to reflect on your day can help you stay mindful and track your progress.</p>
+          </div>
+          `,
+          "Daily Reminder",
+          "Time for your daily check-in",
+          "You're receiving this because you have daily reminders enabled in your Moodly settings.",
+        );
+        await sendEmail(
+          settingsData.email,
+          "Moodly: Daily Check-in Reminder",
+          html,
+        );
+        results.push("Daily reminder email sent");
+      } else {
+        results.push("Daily check-in already completed");
+      }
+    }
 
     if (sendWeekly) {
       // Get last 7 days

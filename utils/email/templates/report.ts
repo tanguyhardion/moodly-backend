@@ -104,9 +104,7 @@ export function generateReportTemplate(
           .map(
             ([tag, count]) => `
           <tr class="tag-item-row">
-            <td class="tag-name">${tag
-              .replace(/([A-Z])/g, " $1")
-              .trim()}</td>
+            <td class="tag-name">${tag.replace(/([A-Z])/g, " $1").trim()}</td>
             <td class="tag-count-cell"><span class="tag-count">${count}x</span></td>
           </tr>
         `,

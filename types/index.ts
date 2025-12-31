@@ -30,6 +30,7 @@ export interface StreakData {
 
 export interface AppSettings {
   email: string;
-  weeklyUpdates: boolean;
-  monthlyUpdates: boolean;
+  dailyReminders: boolean;
+  weeklyReports: boolean;
+  monthlyReports: boolean;
 }
