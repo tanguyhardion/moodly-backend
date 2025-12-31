@@ -8,7 +8,7 @@ import {
 } from "../../utils/auth";
 import { getSupabaseClient } from "../../utils/database";
 import { sendEmail } from "../../utils/email";
-import { generateEmailTemplate } from "../../utils/email-template";
+import { generateReportTemplate } from "../../utils/report-template";
 import { mapDatabaseEntryToDailyEntry } from "../../utils/helpers";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -96,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (entries && entries.length > 0) {
         const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
-        const html = generateEmailTemplate(
+        const html = generateReportTemplate(
           "Weekly",
           formattedEntries,
           startDate.toLocaleDateString(),
@@ -121,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (entries && entries.length > 0) {
         const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
-        const html = generateEmailTemplate(
+        const html = generateReportTemplate(
           "Monthly",
           formattedEntries,
           startDate.toLocaleDateString(),
