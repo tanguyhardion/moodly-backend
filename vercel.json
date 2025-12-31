@@ -1,16 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/send-emails?type=daily-reminders",
-      "schedule": "0 21 * * *"
-    },
-    {
-      "path": "/api/cron/send-emails?type=weekly-reports",
-      "schedule": "0 22 * * 0"
-    },
-    {
-      "path": "/api/cron/send-emails?type=monthly-reports",
-      "schedule": "0 22 28 * *"
+      "path": "/api/cron/send-emails",
+      "schedule": "0 22 * * *"
     }
   ]
 }
