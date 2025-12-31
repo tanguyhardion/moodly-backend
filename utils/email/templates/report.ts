@@ -1,6 +1,6 @@
-import { DailyEntry } from "../types";
+import { DailyEntry } from "../../../types";
 import * as ss from "simple-statistics";
-import { wrapInBaseTemplate } from "./base-template";
+import { wrapInBaseTemplate } from "./base";
 
 interface AggregatedStats {
   avgMood: number;

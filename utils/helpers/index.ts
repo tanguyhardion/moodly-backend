@@ -1,4 +1,4 @@
-import { DailyEntry, AppSettings } from "../types";
+import { DailyEntry, AppSettings } from "../../types";
 
 export function formatHabit(key: string): string {
   // Convert camelCase to readable text

@@ -8,7 +8,7 @@ import {
 } from "../../utils/auth";
 import { getSupabaseClient } from "../../utils/database";
 import { sendEmail } from "../../utils/email";
-import { generateReportTemplate } from "../../utils/report-template";
+import { generateReportTemplate } from "../../utils/email/templates/report";
 import { mapDatabaseEntryToDailyEntry } from "../../utils/helpers";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
