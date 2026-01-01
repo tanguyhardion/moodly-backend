@@ -84,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 function generateInsights(entries: DailyEntry[]): Insight[] {
   const insights: Insight[] = [];
-  const metrics = ["mood", "energy", "sleep", "focus"];
+  const metrics = ["mood", "energy", "sleep", "focus", "stress"];
   const checkboxes = Array.from(
     new Set(entries.flatMap((e) => Object.keys(e.checkboxes))),
   );

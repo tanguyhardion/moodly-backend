@@ -6,6 +6,7 @@ export interface DailyEntry {
     energy: number;
     sleep: number;
     focus: number;
+    stress: number;
   };
   checkboxes: {
     [key: string]: boolean;
