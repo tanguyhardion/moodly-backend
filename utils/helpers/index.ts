@@ -135,6 +135,7 @@ export function mapDatabaseEntryToDailyEntry(entry: any): DailyEntry {
       alcohol: entry.alcohol,
       misc: entry.misc,
     },
+    location: entry.location ? JSON.parse(entry.location) : null,
     note: entry.note,
     createdAt: entry.created_at,
   };
@@ -161,6 +162,7 @@ export function mapDailyEntryToDatabaseEntry(entry: DailyEntry): any {
     day_off: entry.checkboxes?.dayOff ?? false,
     alcohol: entry.checkboxes?.alcohol ?? false,
     misc: entry.checkboxes?.misc ?? false,
+    location: entry.location ? JSON.stringify(entry.location) : null,
     note: entry.note || null,
     created_at: entry.createdAt,
   };

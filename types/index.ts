@@ -11,6 +11,11 @@ export interface DailyEntry {
   checkboxes: {
     [key: string]: boolean;
   };
+  location?: {
+    name: string;
+    latitude: number;
+    longitude: number;
+  } | null;
   note?: string | null;
   createdAt?: string;
 }
