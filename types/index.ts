@@ -2,11 +2,11 @@ export interface DailyEntry {
   id: string;
   date: string;
   metrics: {
-    mood: number;
-    energy: number;
-    sleep: number;
-    focus: number;
-    stress: number;
+    mood: number | null;
+    energy: number | null;
+    sleep: number | null;
+    focus: number | null;
+    stress: number | null;
   };
   checkboxes: {
     [key: string]: boolean;
