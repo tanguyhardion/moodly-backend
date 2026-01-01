@@ -89,8 +89,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           createSuccessResponse(
             `Nothing to send for type: ${
               type || "none"
-            } (Settings: Daily=${!!settingsData.daily_reminders}, Weekly=${!!settingsData.weekly_reports}, Monthly=${!!settingsData.monthly_reports})`
-          )
+            } (Settings: Daily=${!!settingsData.daily_reminders}, Weekly=${!!settingsData.weekly_reports}, Monthly=${!!settingsData.monthly_reports})`,
+          ),
         );
       return;
     }
@@ -115,12 +115,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `,
           "Daily Reminder",
           "Time for your daily check-in",
-          "You're receiving this because you have daily reminders enabled in your Moodly settings."
+          "You're receiving this because you have daily reminders enabled in your Moodly settings.",
         );
         await sendEmail(
           settingsData.email,
           "Moodly: Daily Check-in Reminder",
-          html
+          html,
         );
         results.push("Daily reminder email sent");
       } else {
@@ -146,7 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           "Weekly",
           formattedEntries,
           startDate.toLocaleDateString(),
-          endDate.toLocaleDateString()
+          endDate.toLocaleDateString(),
         );
         await sendEmail(settingsData.email, "Your Weekly Moodly Recap", html);
         results.push("Weekly email sent");
@@ -171,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           "Monthly",
           formattedEntries,
           startDate.toLocaleDateString(),
-          endDate.toLocaleDateString()
+          endDate.toLocaleDateString(),
         );
         await sendEmail(settingsData.email, "Your Monthly Moodly Recap", html);
         results.push("Monthly email sent");
@@ -185,8 +185,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .status(500)
       .json(
         createErrorResponse(
-          error.message || "Internal server error while sending emails"
-        )
+          error.message || "Internal server error while sending emails",
+        ),
       );
   }
 }
