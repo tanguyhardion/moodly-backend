@@ -26,11 +26,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Validate master password
-    if (!validateMasterPassword(req)) {
+    // Validate authentication: check for cron secret (Vercel cron invocation) or master password (manual run)
+    const authHeader = req.headers.authorization;
+    const cronSecret = process.env.CRON_SECRET;
+
+    const isCronInvocation =
+      authHeader && cronSecret && authHeader === `Bearer ${cronSecret}`;
+    const isManualRun = validateMasterPassword(req);
+
+    if (!isCronInvocation && !isManualRun) {
       res
         .status(401)
-        .json(createErrorResponse("Invalid or missing master password"));
+        .json(createErrorResponse("Invalid or missing authentication"));
       return;
     }
 
@@ -89,8 +96,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           createSuccessResponse(
             `Nothing to send for type: ${
               type || "none"
-            } (Settings: Daily=${!!settingsData.daily_reminders}, Weekly=${!!settingsData.weekly_reports}, Monthly=${!!settingsData.monthly_reports})`,
-          ),
+            } (Settings: Daily=${!!settingsData.daily_reminders}, Weekly=${!!settingsData.weekly_reports}, Monthly=${!!settingsData.monthly_reports})`
+          )
         );
       return;
     }
@@ -115,12 +122,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `,
           "Daily Reminder",
           "Time for your daily check-in",
-          "You're receiving this because you have daily reminders enabled in your Moodly settings.",
+          "You're receiving this because you have daily reminders enabled in your Moodly settings."
         );
         await sendEmail(
           settingsData.email,
           "Moodly: Daily Check-in Reminder",
-          html,
+          html
         );
         results.push("Daily reminder email sent");
       } else {
@@ -146,7 +153,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           "Weekly",
           formattedEntries,
           startDate.toLocaleDateString(),
-          endDate.toLocaleDateString(),
+          endDate.toLocaleDateString()
         );
         await sendEmail(settingsData.email, "Your Weekly Moodly Recap", html);
         results.push("Weekly email sent");
@@ -171,7 +178,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           "Monthly",
           formattedEntries,
           startDate.toLocaleDateString(),
-          endDate.toLocaleDateString(),
+          endDate.toLocaleDateString()
         );
         await sendEmail(settingsData.email, "Your Monthly Moodly Recap", html);
         results.push("Monthly email sent");
@@ -185,8 +192,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .status(500)
       .json(
         createErrorResponse(
-          error.message || "Internal server error while sending emails",
-        ),
+          error.message || "Internal server error while sending emails"
+        )
       );
   }
 }
