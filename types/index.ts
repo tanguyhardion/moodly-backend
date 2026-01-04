@@ -18,7 +18,7 @@ export interface DailyEntry {
     longitude: number;
   } | null;
   note?: string | null;
-  createdAt?: string;
+  createdAt: string;
 }
 
 export interface Insight {
