@@ -125,6 +125,7 @@ export function mapDatabaseEntryToDailyEntry(entry: any): DailyEntry {
       sleep: entry.sleep,
       focus: entry.focus,
       stress: entry.stress,
+      look: entry.look,
     },
     checkboxes: {
       healthyFood: entry.healthy_food,
@@ -155,6 +156,7 @@ export function mapDailyEntryToDatabaseEntry(entry: DailyEntry): any {
     sleep: entry.metrics.sleep,
     focus: entry.metrics.focus,
     stress: entry.metrics.stress,
+    look: entry.metrics.look,
     healthy_food: entry.checkboxes?.healthyFood ?? false,
     caffeine: entry.checkboxes?.caffeine ?? false,
     gym: entry.checkboxes?.gym ?? false,

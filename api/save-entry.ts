@@ -68,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         sleep: data.sleep,
         focus: data.focus,
         stress: data.stress,
+        look: data.look,
       },
       checkboxes: {
         healthyFood: data.healthy_food,
