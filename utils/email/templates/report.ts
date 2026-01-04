@@ -7,6 +7,8 @@ interface AggregatedStats {
   avgEnergy: number;
   avgSleep: number;
   avgFocus: number;
+  avgStress: number;
+  avgLook: number;
   totalEntries: number;
   topTags: [string, number][];
 }
@@ -18,6 +20,8 @@ function calculateStats(entries: DailyEntry[]): AggregatedStats {
       avgEnergy: 0,
       avgSleep: 0,
       avgFocus: 0,
+      avgStress: 0,
+      avgLook: 0,
       totalEntries: 0,
       topTags: [],
     };
@@ -27,6 +31,8 @@ function calculateStats(entries: DailyEntry[]): AggregatedStats {
   const energies = entries.map((e) => e.metrics.energy);
   const sleeps = entries.map((e) => e.metrics.sleep);
   const focuses = entries.map((e) => e.metrics.focus);
+  const stresses = entries.map((e) => e.metrics.stress);
+  const looks = entries.map((e) => e.metrics.look);
 
   const tagCounts: Record<string, number> = {};
   entries.forEach((e) => {
@@ -48,6 +54,8 @@ function calculateStats(entries: DailyEntry[]): AggregatedStats {
     avgEnergy: Number(ss.mean(energies).toFixed(1)),
     avgSleep: Number(ss.mean(sleeps).toFixed(1)),
     avgFocus: Number(ss.mean(focuses).toFixed(1)),
+    avgStress: Number(ss.mean(stresses).toFixed(1)),
+    avgLook: Number(ss.mean(looks).toFixed(1)),
     totalEntries: entries.length,
     topTags,
   };
@@ -61,7 +69,7 @@ export function generateReportTemplate(
 ): string {
   const stats = calculateStats(entries);
 
-  const moodColor = (val: number) => {
+  const metricColor = (val: number) => {
     if (val >= 4) return "#4ade80"; // green
     if (val >= 3) return "#facc15"; // yellow
     return "#f87171"; // red
@@ -76,21 +84,39 @@ export function generateReportTemplate(
       
       <div class="metric-row">
         <span class="metric-label">Average Mood</span>
-        <span class="metric-value" style="color: ${moodColor(
+        <span class="metric-value" style="color: ${metricColor(
           stats.avgMood,
         )}">${stats.avgMood} / 5</span>
       </div>
       <div class="metric-row">
         <span class="metric-label">Average Energy</span>
-        <span class="metric-value">${stats.avgEnergy} / 5</span>
+        <span class="metric-value" style="color: ${metricColor(
+          stats.avgEnergy,
+        )}">${stats.avgEnergy} / 5</span>
       </div>
       <div class="metric-row">
         <span class="metric-label">Average Sleep</span>
-        <span class="metric-value">${stats.avgSleep} / 5</span>
+        <span class="metric-value" style="color: ${metricColor(
+          stats.avgSleep,
+        )}">${stats.avgSleep} hrs</span>
       </div>
       <div class="metric-row">
         <span class="metric-label">Average Focus</span>
-        <span class="metric-value">${stats.avgFocus} / 5</span>
+        <span class="metric-value" style="color: ${metricColor(
+          stats.avgFocus,
+        )}">${stats.avgFocus} / 5</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Average Stress</span>
+        <span class="metric-value" style="color: ${metricColor(
+          stats.avgStress,
+        )}">${stats.avgStress} / 5</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Average Look</span>
+        <span class="metric-value" style="color: ${metricColor(
+          stats.avgLook,
+        )}">${stats.avgLook} / 5</span>
       </div>
     </div>
 
