@@ -72,7 +72,7 @@ export function generateReportTemplate(
       <h2>Overview</h2>
       <p style="margin-bottom: 20px;">You tracked your mood <strong>${
         stats.totalEntries
-      }</strong> times this ${period.toLowerCase()}. Here's how your metrics averaged out:</p>
+      }</strong> times this ${period.toLowerCase().slice(0, -2)}. Here's how your metrics averaged out:</p>
       
       <div class="metric-row">
         <span class="metric-label">Average Mood</span>
