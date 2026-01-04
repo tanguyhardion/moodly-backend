@@ -98,7 +98,7 @@ export function generateReportTemplate(
         <span class="metric-label">Average Sleep</span>
         <span class="metric-value" style="color: ${metricColor(
           stats.avgSleep,
-        )}">${stats.avgSleep} hrs</span>
+        )}">${stats.avgSleep} / 5</span>
       </div>
       <div class="metric-row">
         <span class="metric-label">Average Focus</span>
