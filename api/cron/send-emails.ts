@@ -12,6 +12,9 @@ import { wrapInBaseTemplate } from "../../utils/email/templates/base";
 import { generateReportTemplate } from "../../utils/email/templates/report";
 import { mapDatabaseEntryToDailyEntry } from "../../utils/helpers";
 
+const EVENING_METRICS = ["mood", "energy", "stress", "focus"] as const;
+const DEFAULT_METRIC_VALUE = 3;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Handle CORS
   setCorsHeaders(res);
@@ -96,8 +99,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           createSuccessResponse(
             `Nothing to send for type: ${
               type || "none"
-            } (Settings: Daily=${!!settingsData.daily_reminders}, Weekly=${!!settingsData.weekly_reports}, Monthly=${!!settingsData.monthly_reports})`,
-          ),
+            } (Settings: Daily=${!!settingsData.daily_reminders}, Weekly=${!!settingsData.weekly_reports}, Monthly=${!!settingsData.monthly_reports})`
+          )
         );
       return;
     }
@@ -108,26 +111,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const today = new Date().toISOString().split("T")[0];
       const { data: todayEntry } = await supabase
         .from("entry")
-        .select("id")
+        .select(EVENING_METRICS.join(", "))
         .eq("date", today)
         .maybeSingle();
 
-      if (!todayEntry) {
+      // Check if all evening metrics are still at default (only sleep was recorded)
+      const onlySleepRecorded =
+        todayEntry &&
+        EVENING_METRICS.every(
+          (metric) =>
+            todayEntry[metric as keyof typeof todayEntry] ===
+            DEFAULT_METRIC_VALUE
+        );
+
+      if (!todayEntry || onlySleepRecorded) {
+        const message = !todayEntry
+          ? "You haven't recorded your mood today yet. Taking a moment to reflect on your day can help you stay mindful and track your progress."
+          : "You recorded your sleep this morning. Complete your check-in with your mood and other metrics for a complete picture of your day.";
+
+        const title = !todayEntry
+          ? "Time for your daily check-in"
+          : "Complete your daily check-in";
+
         const html = wrapInBaseTemplate(
           `
           <div class="card">
             <h2>Don't forget your check-in!</h2>
-            <p>You haven't recorded your mood for today yet. Taking a moment to reflect on your day can help you stay mindful and track your progress.</p>
+            <p>${message}</p>
           </div>
           `,
           "Daily Reminder",
-          "Time for your daily check-in",
-          "You're receiving this because you have daily reminders enabled in your Moodly settings.",
+          title,
+          "You're receiving this because you have daily reminders enabled in your Moodly settings."
         );
         await sendEmail(
           settingsData.email,
           "Moodly: Daily Check-in Reminder",
-          html,
+          html
         );
         results.push("Daily reminder email sent");
       } else {
@@ -153,7 +173,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           "Weekly",
           formattedEntries,
           startDate.toLocaleDateString(),
-          endDate.toLocaleDateString(),
+          endDate.toLocaleDateString()
         );
         await sendEmail(settingsData.email, "Your Weekly Moodly Recap", html);
         results.push("Weekly email sent");
@@ -178,7 +198,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           "Monthly",
           formattedEntries,
           startDate.toLocaleDateString(),
-          endDate.toLocaleDateString(),
+          endDate.toLocaleDateString()
         );
         await sendEmail(settingsData.email, "Your Monthly Moodly Recap", html);
         results.push("Monthly email sent");
@@ -192,8 +212,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .status(500)
       .json(
         createErrorResponse(
-          error.message || "Internal server error while sending emails",
-        ),
+          error.message || "Internal server error while sending emails"
+        )
       );
   }
 }
