@@ -5,6 +5,7 @@ export interface DailyEntry {
     mood: number | null;
     energy: number | null;
     sleep: number | null;
+    sleepHours: number | null;
     focus: number | null;
     stress: number | null;
     look: number | null;
