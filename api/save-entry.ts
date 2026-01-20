@@ -66,6 +66,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         mood: data.mood,
         energy: data.energy,
         sleep: data.sleep,
+        bedtime: data.bedtime,
+        wakeUpTime: data.wake_up_time,
         sleepHours: data.sleep_hours,
         focus: data.focus,
         stress: data.stress,
