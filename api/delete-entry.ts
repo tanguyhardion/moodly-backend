@@ -9,7 +9,6 @@ import {
 import { getSupabaseClient } from "../utils/database";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Handle CORS
   setCorsHeaders(res);
 
   if (handleOptionsRequest(req, res)) {
@@ -22,11 +21,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Validate master password
     if (!validateMasterPassword(req)) {
-      res
-        .status(401)
-        .json(createErrorResponse("Invalid or missing master password"));
+      res.status(401).json(createErrorResponse("Invalid or missing master password"));
       return;
     }
 
@@ -39,21 +35,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const supabase = getSupabaseClient();
 
-    const { error } = await supabase.from("entry").delete().eq("id", id);
+    const { error } = await supabase.from("daily_entry").delete().eq("id", id);
 
     if (error) {
       console.error("Supabase error:", error);
-      res
-        .status(500)
-        .json(createErrorResponse("Failed to delete entry from database"));
+      res.status(500).json(createErrorResponse("Failed to delete entry from database"));
       return;
     }
 
     res.status(200).json(createSuccessResponse({ id }));
   } catch (error) {
     console.error("Error deleting entry:", error);
-    res
-      .status(500)
-      .json(createErrorResponse("Internal server error while deleting entry"));
+    res.status(500).json(createErrorResponse("Internal server error while deleting entry"));
   }
 }

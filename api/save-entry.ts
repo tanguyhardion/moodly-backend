@@ -1,96 +1,73 @@
-import { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   validateMasterPassword,
   setCorsHeaders,
   handleOptionsRequest,
   createErrorResponse,
   createSuccessResponse,
-} from "../utils/auth";
-import { getSupabaseClient } from "../utils/database";
-import { mapDailyEntryToDatabaseEntry } from "../utils/helpers";
+} from '../utils/auth';
+import { getSupabaseClient } from '../utils/database';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Handle CORS
   setCorsHeaders(res);
 
   if (handleOptionsRequest(req, res)) {
     return;
   }
 
-  if (req.method !== "POST") {
-    res.status(405).json(createErrorResponse("Method not allowed"));
-    return;
+  if (req.method !== 'POST') {
+    return res.status(405).json(createErrorResponse('Method not allowed'));
+  }
+
+  if (!validateMasterPassword(req)) {
+    return res.status(401).json(createErrorResponse('Invalid or missing master password'));
   }
 
   try {
-    // Validate master password
-    if (!validateMasterPassword(req)) {
-      res
-        .status(401)
-        .json(createErrorResponse("Invalid or missing master password"));
-      return;
+    const { id, date, data } = req.body;
+
+    if (!date) {
+      return res.status(400).json(createErrorResponse('Date is required'));
     }
 
-    const { entry } = req.body;
-
-    if (!entry) {
-      res.status(400).json(createErrorResponse("Entry data is required"));
-      return;
+    if (!data || typeof data !== 'object') {
+      return res.status(400).json(createErrorResponse('Data object is required'));
     }
 
     const supabase = getSupabaseClient();
+    const now = new Date().toISOString();
 
-    // Transform app format to database format
-    const dbEntry = mapDailyEntryToDatabaseEntry(entry);
+    const row: Record<string, unknown> = {
+      date,
+      data,
+      updated_at: now,
+    };
 
-    // Use upsert to insert or update
-    const { data, error } = await supabase
-      .from("entry")
-      .upsert(dbEntry, { onConflict: "id" })
+    if (id) {
+      row.id = id;
+    }
+
+    // Upsert on date (unique constraint)
+    const { data: savedEntry, error } = await supabase
+      .from('daily_entry')
+      .upsert(row, { onConflict: 'date' })
       .select()
       .single();
 
     if (error) {
-      console.error("Supabase error:", error);
-      res
-        .status(500)
-        .json(createErrorResponse("Failed to save entry to database"));
-      return;
+      console.error('Supabase error:', error);
+      return res.status(500).json(createErrorResponse('Failed to save entry'));
     }
 
-    // Transform back to app format
-    const savedEntry = {
-      id: data.id,
-      date: data.date,
-      metrics: {
-        mood: data.mood,
-        energy: data.energy,
-        sleep: data.sleep,
-        bedtime: data.bedtime,
-        wakeUpTime: data.wake_up_time,
-        sleepHours: data.sleep_hours,
-        focus: data.focus,
-        stress: data.stress,
-        look: data.look,
-      },
-      checkboxes: {
-        dayOff: data.day_off,
-        healthyFood: data.healthy_food,
-        caffeine: data.caffeine,
-        alcohol: data.alcohol,
-        gym: data.gym,
-        hardWork: data.hard_work,
-        misc: data.misc,
-      },
-      note: data.note,
-      createdAt: data.created_at,
-    };
-
-    res.status(200).json(createSuccessResponse(savedEntry));
+    return res.status(200).json(createSuccessResponse({
+      id: savedEntry.id,
+      date: savedEntry.date,
+      data: savedEntry.data,
+      createdAt: savedEntry.created_at,
+      updatedAt: savedEntry.updated_at,
+    }));
   } catch (error) {
-    console.error("Error saving entry:", error);
-    res
-      .status(500)
-      .json(createErrorResponse("Internal server error while saving entry"));
+    console.error('Error saving entry:', error);
+    return res.status(500).json(createErrorResponse('Internal server error'));
   }
 }
