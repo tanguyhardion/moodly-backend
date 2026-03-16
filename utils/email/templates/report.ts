@@ -1,78 +1,68 @@
-import { DailyEntry } from "../../../types";
-import * as ss from "simple-statistics";
+import { DailyEntry, MetricConfig } from "../../../types";
 import { wrapInBaseTemplate } from "./base";
 
-interface AggregatedStats {
-  avgMood: number;
-  avgEnergy: number;
-  avgSleep: number;
-  avgFocus: number;
-  avgStress: number;
-  avgLook: number;
-  totalEntries: number;
-  topTags: [string, number][];
+interface SliderStat {
+  label: string;
+  avg: number;
+  color?: string;
 }
 
-function calculateStats(entries: DailyEntry[]): AggregatedStats {
+interface CheckboxStat {
+  label: string;
+  count: number;
+}
+
+interface AggregatedStats {
+  sliderStats: SliderStat[];
+  checkboxStats: CheckboxStat[];
+  totalEntries: number;
+}
+
+function calculateStats(entries: DailyEntry[], metrics: MetricConfig[]): AggregatedStats {
   if (entries.length === 0) {
-    return {
-      avgMood: 0,
-      avgEnergy: 0,
-      avgSleep: 0,
-      avgFocus: 0,
-      avgStress: 0,
-      avgLook: 0,
-      totalEntries: 0,
-      topTags: [],
-    };
+    return { sliderStats: [], checkboxStats: [], totalEntries: 0 };
   }
 
-  const moods = entries.map((e) => e.metrics.mood);
-  const energies = entries.map((e) => e.metrics.energy);
-  const sleeps = entries.map((e) => e.metrics.sleep);
-  const focuses = entries.map((e) => e.metrics.focus);
-  const stresses = entries.map((e) => e.metrics.stress);
-  const looks = entries.map((e) => e.metrics.look);
+  const sliderMetrics = metrics.filter((m) => m.type === "slider" || m.type === "number");
+  const checkboxMetrics = metrics.filter((m) => m.type === "checkbox");
 
-  const tagCounts: Record<string, number> = {};
-  entries.forEach((e) => {
-    if (e.checkboxes) {
-      Object.entries(e.checkboxes).forEach(([tag, checked]) => {
-        if (checked) {
-          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-        }
-      });
-    }
-  });
+  const sliderStats: SliderStat[] = sliderMetrics
+    .map((metric) => {
+      const values = entries
+        .map((e) => e.data[metric.id])
+        .filter((v): v is number => typeof v === "number");
+      if (values.length === 0) return null;
+      const avg = Number((values.reduce((a, b) => a + b, 0) / values.length).toFixed(1));
+      return { label: metric.label, avg, color: metric.color };
+    })
+    .filter((x): x is SliderStat => x !== null);
 
-  const topTags = Object.entries(tagCounts)
-    .sort((a, b) => b[1] - a[1])
+  const checkboxStats: CheckboxStat[] = checkboxMetrics
+    .map((metric) => ({
+      label: metric.label,
+      count: entries.filter((e) => e.data[metric.id] === true).length,
+    }))
+    .filter((x) => x.count > 0)
+    .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  return {
-    avgMood: Number(ss.mean(moods).toFixed(1)),
-    avgEnergy: Number(ss.mean(energies).toFixed(1)),
-    avgSleep: Number(ss.mean(sleeps).toFixed(1)),
-    avgFocus: Number(ss.mean(focuses).toFixed(1)),
-    avgStress: Number(ss.mean(stresses).toFixed(1)),
-    avgLook: Number(ss.mean(looks).toFixed(1)),
-    totalEntries: entries.length,
-    topTags,
-  };
+  return { sliderStats, checkboxStats, totalEntries: entries.length };
 }
 
 export function generateReportTemplate(
   period: "Weekly" | "Monthly",
   entries: DailyEntry[],
+  metrics: MetricConfig[],
   startDate: string,
   endDate: string,
 ): string {
-  const stats = calculateStats(entries);
+  const stats = calculateStats(entries, metrics);
 
-  const metricColor = (val: number) => {
-    if (val >= 4) return "#4ade80"; // green
-    if (val >= 3) return "#facc15"; // yellow
-    return "#f87171"; // red
+  const metricColor = (val: number, metricColor?: string) => {
+    if (metricColor) return metricColor;
+    if (val >= 4) return "#4ade80";
+    if (val >= 3) return "#facc15";
+    return "#f87171";
   };
 
   const content = `
@@ -81,56 +71,32 @@ export function generateReportTemplate(
       <p style="margin-bottom: 20px;">You tracked your mood <strong>${
         stats.totalEntries
       }</strong> times this ${period.toLowerCase().slice(0, -2)}. Here's how your metrics averaged out:</p>
-      
+      ${
+        stats.sliderStats.length > 0
+          ? stats.sliderStats
+              .map(
+                (s) => `
       <div class="metric-row">
-        <span class="metric-label">Average Mood</span>
-        <span class="metric-value" style="color: ${metricColor(
-          stats.avgMood,
-        )}">${stats.avgMood} / 5</span>
-      </div>
-      <div class="metric-row">
-        <span class="metric-label">Average Energy</span>
-        <span class="metric-value" style="color: ${metricColor(
-          stats.avgEnergy,
-        )}">${stats.avgEnergy} / 5</span>
-      </div>
-      <div class="metric-row">
-        <span class="metric-label">Average Sleep</span>
-        <span class="metric-value" style="color: ${metricColor(
-          stats.avgSleep,
-        )}">${stats.avgSleep} / 5</span>
-      </div>
-      <div class="metric-row">
-        <span class="metric-label">Average Focus</span>
-        <span class="metric-value" style="color: ${metricColor(
-          stats.avgFocus,
-        )}">${stats.avgFocus} / 5</span>
-      </div>
-      <div class="metric-row">
-        <span class="metric-label">Average Stress</span>
-        <span class="metric-value" style="color: ${metricColor(
-          stats.avgStress,
-        )}">${stats.avgStress} / 5</span>
-      </div>
-      <div class="metric-row">
-        <span class="metric-label">Average Look</span>
-        <span class="metric-value" style="color: ${metricColor(
-          stats.avgLook,
-        )}">${stats.avgLook} / 5</span>
-      </div>
+        <span class="metric-label">${s.label}</span>
+        <span class="metric-value" style="color: ${metricColor(s.avg, s.color)}">${s.avg}</span>
+      </div>`
+              )
+              .join("")
+          : "<p>No numeric metrics recorded this period.</p>"
+      }
     </div>
 
     ${
-      stats.topTags.length > 0
+      stats.checkboxStats.length > 0
         ? `
     <div class="card">
       <h2>Top Activities</h2>
       <table class="tag-table">
-        ${stats.topTags
+        ${stats.checkboxStats
           .map(
-            ([tag, count]) => `
+            ({ label, count }) => `
           <tr class="tag-item-row">
-            <td class="tag-name">${tag.replace(/([A-Z])/g, " $1").trim()}</td>
+            <td class="tag-name">${label}</td>
             <td class="tag-count-cell"><span class="tag-count">${count}x</span></td>
           </tr>
         `,

@@ -12,8 +12,6 @@ import { wrapInBaseTemplate } from "../../utils/email/templates/base";
 import { generateReportTemplate } from "../../utils/email/templates/report";
 import { mapDatabaseEntryToDailyEntry } from "../../utils/helpers";
 
-const EVENING_METRICS = ["mood", "energy", "stress", "focus"] as const;
-const DEFAULT_METRIC_VALUE = 3;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Handle CORS
@@ -110,38 +108,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (sendDaily) {
       const today = new Date().toISOString().split("T")[0];
       const { data: todayEntry } = await supabase
-        .from("entry")
-        .select(EVENING_METRICS.join(", "))
+        .from("daily_entry")
+        .select("date")
         .eq("date", today)
         .maybeSingle();
 
-      // Check if all evening metrics are still at default (only sleep was recorded)
-      const onlySleepRecorded =
-        todayEntry &&
-        EVENING_METRICS.every(
-          (metric) =>
-            todayEntry[metric as keyof typeof todayEntry] ===
-            DEFAULT_METRIC_VALUE
-        );
-
-      if (!todayEntry || onlySleepRecorded) {
-        const message = !todayEntry
-          ? "You haven't recorded your mood today yet. Taking a moment to reflect on your day can help you stay mindful and track your progress."
-          : "You recorded your sleep this morning. Complete your check-in with your mood and other metrics for a complete picture of your day.";
-
-        const title = !todayEntry
-          ? "Time for your daily check-in"
-          : "Complete your daily check-in";
-
+      if (!todayEntry) {
         const html = wrapInBaseTemplate(
           `
           <div class="card">
             <h2>Don't forget your check-in!</h2>
-            <p>${message}</p>
+            <p>You haven't recorded your mood today yet. Taking a moment to reflect on your day can help you stay mindful and track your progress.</p>
           </div>
           `,
           "Daily Reminder",
-          title,
+          "Time for your daily check-in",
           "You're receiving this because you have daily reminders enabled in your Moodly settings."
         );
         await sendEmail(
@@ -155,53 +136,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    if (sendWeekly) {
-      // Get last 7 days
-      const endDate = new Date(now);
-      const startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 7);
+    if (sendWeekly || sendMonthly) {
+      // Fetch metric config once for report generation
+      const { data: metricConfigData } = await supabase
+        .from("metric_config")
+        .select("metrics")
+        .eq("id", 1)
+        .single();
+      const metrics = metricConfigData?.metrics ?? [];
 
-      const { data: entries } = await supabase
-        .from("entry")
-        .select("*")
-        .gte("date", startDate.toISOString().split("T")[0])
-        .lte("date", endDate.toISOString().split("T")[0]);
+      if (sendWeekly) {
+        const endDate = new Date(now);
+        const startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 7);
 
-      if (entries && entries.length > 0) {
-        const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
-        const html = generateReportTemplate(
-          "Weekly",
-          formattedEntries,
-          startDate.toLocaleDateString(),
-          endDate.toLocaleDateString()
-        );
-        await sendEmail(settingsData.email, "Your Weekly Moodly Recap", html);
-        results.push("Weekly email sent");
+        const { data: entries } = await supabase
+          .from("daily_entry")
+          .select("*")
+          .gte("date", startDate.toISOString().split("T")[0])
+          .lte("date", endDate.toISOString().split("T")[0]);
+
+        if (entries && entries.length > 0) {
+          const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
+          const html = generateReportTemplate(
+            "Weekly",
+            formattedEntries,
+            metrics,
+            startDate.toLocaleDateString(),
+            endDate.toLocaleDateString()
+          );
+          await sendEmail(settingsData.email, "Your Weekly Moodly Recap", html);
+          results.push("Weekly email sent");
+        }
       }
-    }
 
-    if (sendMonthly) {
-      // Get last month
-      const endDate = new Date(now);
-      const startDate = new Date(now);
-      startDate.setMonth(startDate.getMonth() - 1);
+      if (sendMonthly) {
+        const endDate = new Date(now);
+        const startDate = new Date(now);
+        startDate.setMonth(startDate.getMonth() - 1);
 
-      const { data: entries } = await supabase
-        .from("entry")
-        .select("*")
-        .gte("date", startDate.toISOString().split("T")[0])
-        .lte("date", endDate.toISOString().split("T")[0]);
+        const { data: entries } = await supabase
+          .from("daily_entry")
+          .select("*")
+          .gte("date", startDate.toISOString().split("T")[0])
+          .lte("date", endDate.toISOString().split("T")[0]);
 
-      if (entries && entries.length > 0) {
-        const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
-        const html = generateReportTemplate(
-          "Monthly",
-          formattedEntries,
-          startDate.toLocaleDateString(),
-          endDate.toLocaleDateString()
-        );
-        await sendEmail(settingsData.email, "Your Monthly Moodly Recap", html);
-        results.push("Monthly email sent");
+        if (entries && entries.length > 0) {
+          const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
+          const html = generateReportTemplate(
+            "Monthly",
+            formattedEntries,
+            metrics,
+            startDate.toLocaleDateString(),
+            endDate.toLocaleDateString()
+          );
+          await sendEmail(settingsData.email, "Your Monthly Moodly Recap", html);
+          results.push("Monthly email sent");
+        }
       }
     }
 
