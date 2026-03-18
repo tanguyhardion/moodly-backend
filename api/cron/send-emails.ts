@@ -105,6 +105,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const results = [];
 
+    // Send scheduled letters (always check, regardless of other settings)
+    const today = new Date().toISOString().split("T")[0];
+    const { data: dueLetters, error: lettersError } = await supabase
+      .from("scheduled_letter")
+      .select("*")
+      .eq("send_date", today)
+      .eq("sent", false);
+
+    if (lettersError) {
+      console.error("Error fetching scheduled letters:", lettersError);
+    } else if (dueLetters && dueLetters.length > 0) {
+      for (const letter of dueLetters) {
+        try {
+          const createdDate = new Date(letter.created_at).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+
+          const html = wrapInBaseTemplate(
+            `
+            <div class="card">
+              <h2>A Letter from Your Past Self</h2>
+              <p style="font-size: 12px; color: #6b7280; margin-bottom: 16px;">
+                Written on ${createdDate}
+              </p>
+              <p style="white-space: pre-wrap; line-height: 1.8;">${letter.message}</p>
+            </div>
+            `,
+            "Letter to Future Self",
+            "You wrote this letter to yourself...",
+            "You scheduled this letter to be delivered today."
+          );
+
+          await sendEmail(
+            settingsData.email,
+            "Moodly: A Letter from Your Past Self",
+            html
+          );
+
+          // Mark as sent
+          await supabase
+            .from("scheduled_letter")
+            .update({ sent: true })
+            .eq("id", letter.id);
+
+          results.push(`Letter ${letter.id} sent successfully`);
+        } catch (letterError) {
+          console.error(`Error sending letter ${letter.id}:`, letterError);
+          results.push(`Letter ${letter.id} failed to send`);
+        }
+      }
+    }
+
     if (sendDaily) {
       const today = new Date().toISOString().split("T")[0];
       const { data: todayEntry } = await supabase
