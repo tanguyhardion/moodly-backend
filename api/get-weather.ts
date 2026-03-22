@@ -150,28 +150,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     } else {
       // Use forecast API for current/future dates
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days=1`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum,wind_speed_10m_max&timezone=auto&forecast_days=1`;
 
       const data = await fetchJson(url);
 
-      if (!data.current) {
+      if (!data.daily || !data.daily.time || data.daily.time.length === 0) {
         res.status(404).json(createErrorResponse('No weather data available'));
         return;
       }
 
-      const weatherCode = data.current.weather_code ?? 0;
+      const weatherCode = data.daily.weather_code?.[0] ?? 0;
       const weatherInfo = getWeatherInfo(weatherCode);
 
       weatherData = {
-        temperature: data.current.temperature_2m ?? null,
+        temperature: data.daily.temperature_2m_mean?.[0] ?? null,
         temperatureMax: data.daily?.temperature_2m_max?.[0] ?? null,
         temperatureMin: data.daily?.temperature_2m_min?.[0] ?? null,
         condition: weatherInfo.condition,
         conditionCode: weatherCode,
         icon: weatherInfo.icon,
-        humidity: data.current.relative_humidity_2m ?? null,
         precipitation: data.daily?.precipitation_sum?.[0] ?? 0,
-        windSpeed: data.current.wind_speed_10m ?? null,
+        windSpeed: data.daily?.wind_speed_10m_max?.[0] ?? null,
         date: today,
         isHistorical: false,
       };
