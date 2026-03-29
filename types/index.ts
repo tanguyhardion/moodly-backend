@@ -53,6 +53,27 @@ export interface AppSettings {
   monthlyReports: boolean;
 }
 
+// --- Email Alerts ---
+export type AlertOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'is_true' | 'is_false';
+
+export interface AlertCondition {
+  metricId: string;
+  operator: AlertOperator;
+  value: number | string | boolean | null;
+}
+
+export interface EmailAlert {
+  id?: number;
+  name: string;
+  enabled: boolean;
+  conditions: AlertCondition[];
+  conditionLogic: 'all' | 'any';
+  emailSubject: string;
+  emailMessage: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // --- API Response ---
 export interface ApiResponse<T> {
   success: boolean;
