@@ -1,4 +1,4 @@
-import type { DailyEntry, AppSettings, MetricConfig, UserMetricConfiguration, EmailAlert, AlertCondition } from "../../types";
+import type { DailyEntry, AppSettings, MetricConfig, MetricDataMap, UserMetricConfiguration, EmailAlert, AlertCondition } from "../../types";
 
 // --- Database <-> App Mapping: Daily Entries ---
 
@@ -6,7 +6,7 @@ export function mapDatabaseEntryToDailyEntry(row: Record<string, unknown>): Dail
   return {
     id: row.id as string,
     date: row.date as string,
-    data: (row.data as Record<string, unknown>) ?? {},
+    data: (row.data as MetricDataMap) ?? {},
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string | undefined,
   };

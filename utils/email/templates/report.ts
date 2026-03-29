@@ -35,7 +35,7 @@ function calculateStats(entries: DailyEntry[], metrics: MetricConfig[]): Aggrega
       const avg = Number((values.reduce((a, b) => a + b, 0) / values.length).toFixed(1));
       return { label: metric.label, avg, color: metric.color };
     })
-    .filter((x): x is SliderStat => x !== null);
+    .filter((x): x is NonNullable<typeof x> => x !== null);
 
   const checkboxStats: CheckboxStat[] = checkboxMetrics
     .map((metric) => ({
