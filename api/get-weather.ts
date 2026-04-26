@@ -17,7 +17,7 @@ import https from "https";
  * - date: YYYY-MM-DD (optional, defaults to today for current weather)
  *
  * Returns:
- * - temperature: average temperature in Celsius
+ * - temperature: average temperature (10am-8pm) in Celsius
  * - condition: weather condition string (sunny, cloudy, rainy, etc.)
  * - conditionCode: WMO weather code
  * - humidity: relative humidity %
@@ -124,53 +124,103 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (isHistorical) {
       // Use historical/archive API for past dates
-      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}&start_date=${requestDate}&end_date=${requestDate}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum,wind_speed_10m_max&timezone=auto`;
+      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}&start_date=${requestDate}&end_date=${requestDate}&hourly=temperature_2m,weather_code,precipitation,wind_speed_10m&timezone=auto`;
 
       const data = await fetchJson(url);
 
-      if (!data.daily || !data.daily.time || data.daily.time.length === 0) {
+      if (!data.hourly || !data.hourly.time || data.hourly.time.length === 0) {
         res.status(404).json(createErrorResponse('No weather data available for this date'));
         return;
       }
 
-      const weatherCode = data.daily.weather_code?.[0] ?? 0;
+      // Extract data for 10am-8pm (hours 10-20)
+      const temperatures = data.hourly.temperature_2m || [];
+      const conditions = data.hourly.weather_code || [];
+      const precipitation = data.hourly.precipitation || [];
+      const windSpeeds = data.hourly.wind_speed_10m || [];
+
+      const daytimeTemps = temperatures.slice(10, 20);
+      const daytimeConditions = conditions.slice(10, 20);
+      const daytimePrecip = precipitation.slice(10, 20);
+      const daytimeWinds = windSpeeds.slice(10, 20);
+
+      // Calculate average temperature
+      const avgTemp = daytimeTemps.length > 0 ? daytimeTemps.reduce((a: number, b: number) => a + b, 0) / daytimeTemps.length : null;
+
+      // Get most frequent weather code during daytime
+      const weatherCodeCounts = daytimeConditions.reduce((acc: Record<number, number>, code: number) => {
+        acc[code] = (acc[code] || 0) + 1;
+        return acc;
+      }, {});
+      const weatherCode = daytimeConditions.length > 0
+        ? parseInt(Object.entries(weatherCodeCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || '0')
+        : 0;
       const weatherInfo = getWeatherInfo(weatherCode);
 
+      // Sum precipitation during daytime
+      const totalPrecip = daytimePrecip.length > 0 ? daytimePrecip.reduce((a: number, b: number) => a + b, 0) : 0;
+
+      // Average wind speed during daytime
+      const avgWindSpeed = daytimeWinds.length > 0 ? daytimeWinds.reduce((a: number, b: number) => a + b, 0) / daytimeWinds.length : null;
+
       weatherData = {
-        temperature: data.daily.temperature_2m_mean?.[0] ?? null,
-        temperatureMax: data.daily.temperature_2m_max?.[0] ?? null,
-        temperatureMin: data.daily.temperature_2m_min?.[0] ?? null,
+        temperature: avgTemp,
         condition: weatherInfo.condition,
         conditionCode: weatherCode,
         icon: weatherInfo.icon,
-        precipitation: data.daily.precipitation_sum?.[0] ?? 0,
-        windSpeed: data.daily.wind_speed_10m_max?.[0] ?? null,
+        precipitation: totalPrecip,
+        windSpeed: avgWindSpeed,
         date: requestDate,
         isHistorical: true,
       };
     } else {
       // Use forecast API for current/future dates
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum,wind_speed_10m_max&timezone=auto&forecast_days=1`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,weather_code,precipitation,wind_speed_10m&timezone=auto&forecast_days=1`;
 
       const data = await fetchJson(url);
 
-      if (!data.daily || !data.daily.time || data.daily.time.length === 0) {
+      if (!data.hourly || !data.hourly.time || data.hourly.time.length === 0) {
         res.status(404).json(createErrorResponse('No weather data available'));
         return;
       }
 
-      const weatherCode = data.daily.weather_code?.[0] ?? 0;
+      // Extract data for 10am-8pm (hours 10-20)
+      const temperatures = data.hourly.temperature_2m || [];
+      const conditions = data.hourly.weather_code || [];
+      const precipitation = data.hourly.precipitation || [];
+      const windSpeeds = data.hourly.wind_speed_10m || [];
+
+      const daytimeTemps = temperatures.slice(10, 20);
+      const daytimeConditions = conditions.slice(10, 20);
+      const daytimePrecip = precipitation.slice(10, 20);
+      const daytimeWinds = windSpeeds.slice(10, 20);
+
+      // Calculate average temperature
+      const avgTemp = daytimeTemps.length > 0 ? daytimeTemps.reduce((a: number, b: number) => a + b, 0) / daytimeTemps.length : null;
+
+      // Get most frequent weather code during daytime
+      const weatherCodeCounts = daytimeConditions.reduce((acc: Record<number, number>, code: number) => {
+        acc[code] = (acc[code] || 0) + 1;
+        return acc;
+      }, {});
+      const weatherCode = daytimeConditions.length > 0
+        ? parseInt(Object.entries(weatherCodeCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || '0')
+        : 0;
       const weatherInfo = getWeatherInfo(weatherCode);
 
+      // Sum precipitation during daytime
+      const totalPrecip = daytimePrecip.length > 0 ? daytimePrecip.reduce((a: number, b: number) => a + b, 0) : 0;
+
+      // Average wind speed during daytime
+      const avgWindSpeed = daytimeWinds.length > 0 ? daytimeWinds.reduce((a: number, b: number) => a + b, 0) / daytimeWinds.length : null;
+
       weatherData = {
-        temperature: data.daily.temperature_2m_mean?.[0] ?? null,
-        temperatureMax: data.daily?.temperature_2m_max?.[0] ?? null,
-        temperatureMin: data.daily?.temperature_2m_min?.[0] ?? null,
+        temperature: avgTemp,
         condition: weatherInfo.condition,
         conditionCode: weatherCode,
         icon: weatherInfo.icon,
-        precipitation: data.daily?.precipitation_sum?.[0] ?? 0,
-        windSpeed: data.daily?.wind_speed_10m_max?.[0] ?? null,
+        precipitation: totalPrecip,
+        windSpeed: avgWindSpeed,
         date: today,
         isHistorical: false,
       };
