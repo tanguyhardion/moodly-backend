@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/check-longines-availability",
-      "schedule": "0 * * * *"
+      "schedule": "0 7 * * *"
     },
     {
       "path": "/api/cron/check-email-alerts",
