@@ -59,3 +59,4 @@ Backend API for the Moodly mood tracking app, providing secure data storage, ana
 ### Cron Jobs
 
 - `GET /api/cron/send-emails` - Send automated email reports (called by Vercel cron)
+- `GET /api/cron/check-longines-availability` - Hourly Longines HydroConquest availability check
