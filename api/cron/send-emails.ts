@@ -10,7 +10,7 @@ import { getSupabaseClient } from "../../utils/database";
 import { sendEmail } from "../../utils/email";
 import { wrapInBaseTemplate } from "../../utils/email/templates/base";
 import { generateReportTemplate } from "../../utils/email/templates/report";
-import { mapDatabaseEntryToDailyEntry } from "../../utils/helpers";
+import { mapDatabaseEntryToDailyEntry, getLocalDateString } from "../../utils/helpers";
 
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -106,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const results = [];
 
     // Send scheduled letters (always check, regardless of other settings)
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateString(new Date());
     const { data: dueLetters, error: lettersError } = await supabase
       .from("scheduled_letter")
       .select("*")
@@ -160,7 +160,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (sendDaily) {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString(new Date());
       const { data: todayEntry } = await supabase
         .from("daily_entry")
         .select("date")
@@ -207,8 +207,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: entries } = await supabase
           .from("daily_entry")
           .select("*")
-          .gte("date", startDate.toISOString().split("T")[0])
-          .lte("date", endDate.toISOString().split("T")[0]);
+          .gte("date", getLocalDateString(startDate))
+          .lte("date", getLocalDateString(endDate));
 
         if (entries && entries.length > 0) {
           const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);
@@ -232,8 +232,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: entries } = await supabase
           .from("daily_entry")
           .select("*")
-          .gte("date", startDate.toISOString().split("T")[0])
-          .lte("date", endDate.toISOString().split("T")[0]);
+          .gte("date", getLocalDateString(startDate))
+          .lte("date", getLocalDateString(endDate));
 
         if (entries && entries.length > 0) {
           const formattedEntries = entries.map(mapDatabaseEntryToDailyEntry);

@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
 
 export async function sendEmail(to: string, subject: string, html: string) {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    return;
+    throw new Error("Missing SMTP credentials: set SMTP_USER and SMTP_PASS");
   }
 
   try {
