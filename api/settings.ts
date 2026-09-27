@@ -1,77 +1,38 @@
-import { VercelRequest, VercelResponse } from "@vercel/node";
-import {
-  validateMasterPassword,
-  setCorsHeaders,
-  handleOptionsRequest,
-  createErrorResponse,
-  createSuccessResponse,
-} from "../utils/auth";
-import { getSupabaseClient } from "../utils/database";
-import {
-  mapDatabaseSettingsToAppSettings,
-  mapAppSettingsToDatabaseSettings,
-} from "../utils/helpers";
+import { withApi, createErrorResponse, createSuccessResponse } from "../utils/api";
+import { getSettings, getSupabaseClient } from "../utils/database";
+import { mapAppSettingsToDatabaseSettings } from "../utils/helpers";
+import type { AppSettings } from "../types";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
+const DEFAULT_SETTINGS: AppSettings = {
+  email: "",
+  dailyReminders: false,
+  weeklyReports: false,
+  monthlyReports: false,
+};
 
-  if (handleOptionsRequest(req, res)) {
-    return;
-  }
-
-  // Validate master password for both GET and POST
-  if (!validateMasterPassword(req)) {
-    res.status(401).json(createErrorResponse("Invalid master password"));
-    return;
-  }
-
-  const supabase = getSupabaseClient();
-
+export default withApi({ methods: ["GET", "POST"] }, async (req, res) => {
   if (req.method === "GET") {
     try {
-      const { data, error } = await supabase
-        .from("app_settings")
-        .select("*")
-        .eq("id", 1)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        // PGRST116 is "The result contains 0 rows"
-        throw error;
-      }
-
-      const settings = data
-        ? mapDatabaseSettingsToAppSettings(data)
-        : {
-            email: "",
-            dailyReminders: false,
-            weeklyReports: false,
-            monthlyReports: false,
-          };
-
-      res.status(200).json(createSuccessResponse(settings));
-    } catch (error: any) {
+      const settings = await getSettings();
+      return res.status(200).json(createSuccessResponse(settings ?? DEFAULT_SETTINGS));
+    } catch (error) {
       console.error("Error fetching settings:", error);
-      res.status(500).json(createErrorResponse("Failed to fetch settings"));
+      return res.status(500).json(createErrorResponse("Failed to fetch settings"));
     }
-  } else if (req.method === "POST") {
-    try {
-      const dbSettings = {
-        ...mapAppSettingsToDatabaseSettings(req.body),
-        id: 1,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error } = await supabase.from("app_settings").upsert(dbSettings);
-
-      if (error) throw error;
-
-      res.status(200).json(createSuccessResponse({ success: true }));
-    } catch (error: any) {
-      console.error("Error saving settings:", error);
-      res.status(500).json(createErrorResponse("Failed to save settings"));
-    }
-  } else {
-    res.status(405).json(createErrorResponse("Method not allowed"));
   }
-}
+
+  const dbSettings = {
+    ...mapAppSettingsToDatabaseSettings(req.body),
+    id: 1,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await getSupabaseClient().from("app_settings").upsert(dbSettings);
+
+  if (error) {
+    console.error("Error saving settings:", error);
+    return res.status(500).json(createErrorResponse("Failed to save settings"));
+  }
+
+  return res.status(200).json(createSuccessResponse({ success: true }));
+});

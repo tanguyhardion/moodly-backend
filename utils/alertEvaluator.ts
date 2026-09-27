@@ -1,6 +1,8 @@
 import type { AlertCondition, MetricValue, EmailAlert, DailyEntry, MetricConfig } from "../types";
 import { wrapInBaseTemplate } from "./email/templates/base";
 import { sendEmail } from "./email";
+import { formatMetricValue } from "./helpers";
+import { getEnabledAlerts, getEntryByDate, getMetricConfigs, getSettings } from "./database";
 
 export function evaluateCondition(
   condition: AlertCondition,
@@ -58,47 +60,25 @@ export function formatAlertEmail(
   entry: DailyEntry,
   metrics: MetricConfig[]
 ): string {
-  // Replace placeholders in the message
-  let message = alert.emailMessage;
-
-  // Replace {{metric_name}} placeholders with actual values
+  // Replace {{metric id}} and {{metric label}} placeholders (case-insensitive) with the entry's values.
+  // Looked up by key rather than built into a RegExp, so labels like "C++" or "Sleep (h)" are safe.
+  const valuesByPlaceholder = new Map<string, string>();
   for (const metric of metrics) {
-    const value = entry.data[metric.id];
-    let displayValue = "N/A";
-
-    if (value !== null && value !== undefined) {
-      if (typeof value === "boolean") {
-        displayValue = value ? "Yes" : "No";
-      } else if (typeof value === "object" && "name" in value) {
-        displayValue = value.name;
-      } else {
-        displayValue = String(value);
-      }
-    }
-
-    // Replace both {{metric.id}} and {{metric.label}} patterns
-    message = message.replace(new RegExp(`\\{\\{${metric.id}\\}\\}`, "gi"), displayValue);
-    message = message.replace(new RegExp(`\\{\\{${metric.label}\\}\\}`, "gi"), displayValue);
+    const displayValue = formatMetricValue(entry.data[metric.id]);
+    valuesByPlaceholder.set(metric.id.toLowerCase(), displayValue);
+    valuesByPlaceholder.set(metric.label.trim().toLowerCase(), displayValue);
   }
+
+  const message = alert.emailMessage.replace(
+    /\{\{([^{}]+)\}\}/g,
+    (placeholder, key: string) => valuesByPlaceholder.get(key.trim().toLowerCase()) ?? placeholder,
+  );
 
   // Build triggered conditions summary
   const triggeredConditions = alert.conditions.map((c) => {
     const metric = metrics.find((m) => m.id === c.metricId);
     const metricLabel = metric?.label ?? c.metricId;
-    const value = entry.data[c.metricId];
-    let displayValue = "N/A";
-
-    if (value !== null && value !== undefined) {
-      if (typeof value === "boolean") {
-        displayValue = value ? "Yes" : "No";
-      } else if (typeof value === "object" && "name" in value) {
-        displayValue = value.name;
-      } else {
-        displayValue = String(value);
-      }
-    }
-
-    return `<li><strong>${metricLabel}:</strong> ${displayValue}</li>`;
+    return `<li><strong>${metricLabel}:</strong> ${formatMetricValue(entry.data[c.metricId])}</li>`;
   }).join("");
 
   return wrapInBaseTemplate(
@@ -149,4 +129,19 @@ export async function checkAndSendAlertsForEntry(
   }
 
   return results;
+}
+
+/** Loads settings, enabled alerts, the entry for `date` and metric config, then evaluates and sends alerts. */
+export async function runAlertsForDate(date: string): Promise<string[]> {
+  const settings = await getSettings();
+  if (!settings?.email) return ["No email configured"];
+
+  const alerts = await getEnabledAlerts();
+  if (alerts.length === 0) return ["No enabled email alerts"];
+
+  const entry = await getEntryByDate(date);
+  if (!entry) return [`No entry found for ${date}`];
+
+  const metrics = await getMetricConfigs();
+  return checkAndSendAlertsForEntry(settings.email, entry, alerts, metrics);
 }

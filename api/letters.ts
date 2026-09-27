@@ -1,70 +1,44 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import {
-  validateMasterPassword,
-  setCorsHeaders,
-  handleOptionsRequest,
-  createErrorResponse,
-  createSuccessResponse,
-} from '../utils/auth';
+import { withApi, createErrorResponse, createSuccessResponse } from '../utils/api';
 import { getSupabaseClient } from '../utils/database';
+import type { ScheduledLetter } from '../types';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
+export default withApi({ methods: ['POST'] }, async (req, res) => {
+  const { message, sendDate } = req.body;
 
-  if (handleOptionsRequest(req, res)) {
-    return;
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    return res.status(400).json(createErrorResponse('Message is required'));
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json(createErrorResponse('Method not allowed'));
+  if (!sendDate) {
+    return res.status(400).json(createErrorResponse('Send date is required'));
   }
 
-  if (!validateMasterPassword(req)) {
-    return res.status(401).json(createErrorResponse('Invalid or missing master password'));
+  // Validate that sendDate is in the future
+  const today = new Date().toISOString().split('T')[0];
+  if (sendDate <= today) {
+    return res.status(400).json(createErrorResponse('Send date must be in the future'));
   }
 
-  try {
-    const { message, sendDate } = req.body;
+  const { data: savedLetter, error } = await getSupabaseClient()
+    .from('scheduled_letter')
+    .insert({
+      message: message.trim(),
+      send_date: sendDate,
+      sent: false,
+    })
+    .select()
+    .single();
 
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      return res.status(400).json(createErrorResponse('Message is required'));
-    }
-
-    if (!sendDate) {
-      return res.status(400).json(createErrorResponse('Send date is required'));
-    }
-
-    // Validate that sendDate is in the future
-    const today = new Date().toISOString().split('T')[0];
-    if (sendDate <= today) {
-      return res.status(400).json(createErrorResponse('Send date must be in the future'));
-    }
-
-    const supabase = getSupabaseClient();
-
-    const { data: savedLetter, error } = await supabase
-      .from('scheduled_letter')
-      .insert({
-        message: message.trim(),
-        send_date: sendDate,
-        sent: false,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Supabase error:', error);
-      return res.status(500).json(createErrorResponse('Failed to save letter'));
-    }
-
-    return res.status(200).json(createSuccessResponse({
-      id: savedLetter.id,
-      message: savedLetter.message,
-      sendDate: savedLetter.send_date,
-      createdAt: savedLetter.created_at,
-    }));
-  } catch (error) {
-    console.error('Error saving letter:', error);
-    return res.status(500).json(createErrorResponse('Internal server error'));
+  if (error) {
+    console.error('Supabase error:', error);
+    return res.status(500).json(createErrorResponse('Failed to save letter'));
   }
-}
+
+  const letter: ScheduledLetter = {
+    id: savedLetter.id,
+    message: savedLetter.message,
+    sendDate: savedLetter.send_date,
+    createdAt: savedLetter.created_at,
+  };
+  return res.status(200).json(createSuccessResponse(letter));
+});

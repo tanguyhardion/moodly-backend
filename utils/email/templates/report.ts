@@ -23,11 +23,13 @@ function calculateStats(entries: DailyEntry[], metrics: MetricConfig[]): Aggrega
     return { sliderStats: [], checkboxStats: [], totalEntries: 0 };
   }
 
-  const sliderMetrics = metrics.filter((m) => m.type === "slider" || m.type === "number");
+  const sliderMetrics = metrics.filter(
+    (m) => m.type === "slider" || m.type === "number" || m.type === "calculated",
+  );
   const checkboxMetrics = metrics.filter((m) => m.type === "checkbox");
 
-  const sliderStats: SliderStat[] = sliderMetrics
-    .map((metric) => {
+  const sliderStats = sliderMetrics
+    .map((metric): SliderStat | null => {
       const values = entries
         .map((e) => e.data[metric.id])
         .filter((v): v is number => typeof v === "number");

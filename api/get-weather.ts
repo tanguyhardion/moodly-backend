@@ -1,12 +1,5 @@
-import { VercelRequest, VercelResponse } from "@vercel/node";
-import {
-  validateMasterPassword,
-  setCorsHeaders,
-  handleOptionsRequest,
-  createErrorResponse,
-  createSuccessResponse,
-} from "../utils/auth";
-import https from "https";
+import { withApi, createErrorResponse, createSuccessResponse } from "../utils/api";
+import { fetchJson } from "../utils/http";
 
 /**
  * Weather API using Open-Meteo (free, no API key required)
@@ -61,174 +54,84 @@ function getWeatherInfo(code: number): { condition: string; icon: string } {
   return WMO_CODES[code] ?? { condition: 'Unknown', icon: 'unknown' };
 }
 
-function fetchJson(url: string): Promise<any> {
-  return new Promise((resolve, reject) => {
-    https
-      .get(url, (res) => {
-        let body = '';
-        res.on('data', (chunk) => (body += chunk));
-        res.on('end', () => {
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            try {
-              resolve(JSON.parse(body));
-            } catch (e) {
-              reject(new Error('Failed to parse response'));
-            }
-          } else {
-            reject(new Error(`API error: ${res.statusCode} ${body}`));
-          }
-        });
-      })
-      .on('error', (err) => reject(err));
-  });
+interface OpenMeteoHourly {
+  hourly?: {
+    time?: string[];
+    temperature_2m?: number[];
+    weather_code?: number[];
+    precipitation?: number[];
+    wind_speed_10m?: number[];
+  };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCorsHeaders(res);
+const HOURLY_FIELDS = 'temperature_2m,weather_code,precipitation,wind_speed_10m';
 
-  if (handleOptionsRequest(req, res)) {
-    return;
-  }
+const average = (vals: number[]): number | null =>
+  vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 
-  if (req.method !== 'GET') {
-    res.status(405).json(createErrorResponse('Method not allowed'));
-    return;
-  }
+/** Summarises hourly data over the daytime window (10am-8pm local time). */
+function summarizeDaytime(hourly: NonNullable<OpenMeteoHourly['hourly']>) {
+  const daytime = (vals: number[] | undefined) => (vals ?? []).slice(10, 20);
+  const temps = daytime(hourly.temperature_2m);
+  const codes = daytime(hourly.weather_code);
+  const precip = daytime(hourly.precipitation);
+  const winds = daytime(hourly.wind_speed_10m);
 
-  if (!validateMasterPassword(req)) {
-    res.status(401).json(createErrorResponse('Invalid or missing master password'));
-    return;
-  }
+  // Most frequent weather code during daytime
+  const codeCounts = new Map<number, number>();
+  for (const code of codes) codeCounts.set(code, (codeCounts.get(code) ?? 0) + 1);
+  const weatherCode = [...codeCounts.entries()].sort(([, a], [, b]) => b - a)[0]?.[0] ?? 0;
+  const weatherInfo = getWeatherInfo(weatherCode);
 
+  return {
+    temperature: average(temps),
+    condition: weatherInfo.condition,
+    conditionCode: weatherCode,
+    icon: weatherInfo.icon,
+    precipitation: precip.reduce((a, b) => a + b, 0),
+    windSpeed: average(winds),
+  };
+}
+
+export default withApi({ methods: ['GET'] }, async (req, res) => {
   const { lat, lon, date } = req.query;
 
   if (!lat || !lon || typeof lat !== 'string' || typeof lon !== 'string') {
-    res.status(400).json(createErrorResponse('lat and lon query parameters are required'));
-    return;
+    return res.status(400).json(createErrorResponse('lat and lon query parameters are required'));
   }
 
   const latitude = parseFloat(lat);
   const longitude = parseFloat(lon);
 
   if (isNaN(latitude) || isNaN(longitude)) {
-    res.status(400).json(createErrorResponse('Invalid lat/lon values'));
-    return;
+    return res.status(400).json(createErrorResponse('Invalid lat/lon values'));
   }
+
+  const today = new Date().toISOString().split('T')[0];
+  const requestDate = typeof date === 'string' ? date : today;
+  const isHistorical = requestDate < today;
+
+  // Archive API for past dates, forecast API for today/future
+  const url = isHistorical
+    ? `https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}&start_date=${requestDate}&end_date=${requestDate}&hourly=${HOURLY_FIELDS}&timezone=auto`
+    : `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=${HOURLY_FIELDS}&timezone=auto&forecast_days=1`;
 
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const requestDate = typeof date === 'string' ? date : today;
-    const isHistorical = requestDate < today;
+    const data = await fetchJson<OpenMeteoHourly>(url);
 
-    let weatherData;
-
-    if (isHistorical) {
-      // Use historical/archive API for past dates
-      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}&start_date=${requestDate}&end_date=${requestDate}&hourly=temperature_2m,weather_code,precipitation,wind_speed_10m&timezone=auto`;
-
-      const data = await fetchJson(url);
-
-      if (!data.hourly || !data.hourly.time || data.hourly.time.length === 0) {
-        res.status(404).json(createErrorResponse('No weather data available for this date'));
-        return;
-      }
-
-      // Extract data for 10am-8pm (hours 10-20)
-      const temperatures = data.hourly.temperature_2m || [];
-      const conditions = data.hourly.weather_code || [];
-      const precipitation = data.hourly.precipitation || [];
-      const windSpeeds = data.hourly.wind_speed_10m || [];
-
-      const daytimeTemps = temperatures.slice(10, 20);
-      const daytimeConditions = conditions.slice(10, 20);
-      const daytimePrecip = precipitation.slice(10, 20);
-      const daytimeWinds = windSpeeds.slice(10, 20);
-
-      // Calculate average temperature
-      const avgTemp = daytimeTemps.length > 0 ? daytimeTemps.reduce((a: number, b: number) => a + b, 0) / daytimeTemps.length : null;
-
-      // Get most frequent weather code during daytime
-      const weatherCodeCounts = daytimeConditions.reduce((acc: Record<number, number>, code: number) => {
-        acc[code] = (acc[code] || 0) + 1;
-        return acc;
-      }, {});
-      const weatherCode = daytimeConditions.length > 0
-        ? parseInt(Object.entries(weatherCodeCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || '0')
-        : 0;
-      const weatherInfo = getWeatherInfo(weatherCode);
-
-      // Sum precipitation during daytime
-      const totalPrecip = daytimePrecip.length > 0 ? daytimePrecip.reduce((a: number, b: number) => a + b, 0) : 0;
-
-      // Average wind speed during daytime
-      const avgWindSpeed = daytimeWinds.length > 0 ? daytimeWinds.reduce((a: number, b: number) => a + b, 0) / daytimeWinds.length : null;
-
-      weatherData = {
-        temperature: avgTemp,
-        condition: weatherInfo.condition,
-        conditionCode: weatherCode,
-        icon: weatherInfo.icon,
-        precipitation: totalPrecip,
-        windSpeed: avgWindSpeed,
-        date: requestDate,
-        isHistorical: true,
-      };
-    } else {
-      // Use forecast API for current/future dates
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,weather_code,precipitation,wind_speed_10m&timezone=auto&forecast_days=1`;
-
-      const data = await fetchJson(url);
-
-      if (!data.hourly || !data.hourly.time || data.hourly.time.length === 0) {
-        res.status(404).json(createErrorResponse('No weather data available'));
-        return;
-      }
-
-      // Extract data for 10am-8pm (hours 10-20)
-      const temperatures = data.hourly.temperature_2m || [];
-      const conditions = data.hourly.weather_code || [];
-      const precipitation = data.hourly.precipitation || [];
-      const windSpeeds = data.hourly.wind_speed_10m || [];
-
-      const daytimeTemps = temperatures.slice(10, 20);
-      const daytimeConditions = conditions.slice(10, 20);
-      const daytimePrecip = precipitation.slice(10, 20);
-      const daytimeWinds = windSpeeds.slice(10, 20);
-
-      // Calculate average temperature
-      const avgTemp = daytimeTemps.length > 0 ? daytimeTemps.reduce((a: number, b: number) => a + b, 0) / daytimeTemps.length : null;
-
-      // Get most frequent weather code during daytime
-      const weatherCodeCounts = daytimeConditions.reduce((acc: Record<number, number>, code: number) => {
-        acc[code] = (acc[code] || 0) + 1;
-        return acc;
-      }, {});
-      const weatherCode = daytimeConditions.length > 0
-        ? parseInt(Object.entries(weatherCodeCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || '0')
-        : 0;
-      const weatherInfo = getWeatherInfo(weatherCode);
-
-      // Sum precipitation during daytime
-      const totalPrecip = daytimePrecip.length > 0 ? daytimePrecip.reduce((a: number, b: number) => a + b, 0) : 0;
-
-      // Average wind speed during daytime
-      const avgWindSpeed = daytimeWinds.length > 0 ? daytimeWinds.reduce((a: number, b: number) => a + b, 0) / daytimeWinds.length : null;
-
-      weatherData = {
-        temperature: avgTemp,
-        condition: weatherInfo.condition,
-        conditionCode: weatherCode,
-        icon: weatherInfo.icon,
-        precipitation: totalPrecip,
-        windSpeed: avgWindSpeed,
-        date: today,
-        isHistorical: false,
-      };
+    if (!data.hourly?.time?.length) {
+      return res.status(404).json(createErrorResponse(
+        isHistorical ? 'No weather data available for this date' : 'No weather data available',
+      ));
     }
 
-    res.status(200).json(createSuccessResponse(weatherData));
-  } catch (error: any) {
+    return res.status(200).json(createSuccessResponse({
+      ...summarizeDaytime(data.hourly),
+      date: isHistorical ? requestDate : today,
+      isHistorical,
+    }));
+  } catch (error) {
     console.error('Error fetching weather:', error);
-    res.status(500).json(createErrorResponse('Failed to fetch weather data'));
+    return res.status(500).json(createErrorResponse('Failed to fetch weather data'));
   }
-}
+});
