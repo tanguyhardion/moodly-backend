@@ -92,7 +92,7 @@ export function formatAlertEmail(
       <ul style="margin: 0; padding-left: 20px;">
         ${triggeredConditions}
       </ul>
-      <p style="font-size: 12px; color: #6b7280; margin-top: 16px;">
+      <p style="font-size: 12px; color: #6f6878; margin-top: 16px;">
         Entry date: ${entry.date}
       </p>
     </div>

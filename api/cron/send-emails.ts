@@ -36,7 +36,7 @@ async function sendDueLetters(email: string): Promise<string[]> {
         `
         <div class="card">
           <h2>A Letter from Your Past Self</h2>
-          <p style="font-size: 12px; color: #6b7280; margin-bottom: 16px;">
+          <p style="font-size: 12px; color: #6f6878; margin-bottom: 16px;">
             Written on ${createdDate}
           </p>
           <p style="white-space: pre-wrap; line-height: 1.8;">${letter.message}</p>

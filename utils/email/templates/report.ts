@@ -62,9 +62,9 @@ export function generateReportTemplate(
 
   const metricColor = (val: number, metricColor?: string) => {
     if (metricColor) return metricColor;
-    if (val >= 4) return "#4ade80";
-    if (val >= 3) return "#facc15";
-    return "#f87171";
+    if (val >= 4) return "#2f9e6b";
+    if (val >= 3) return "#f2a93b";
+    return "#e5484d";
   };
 
   const content = `
